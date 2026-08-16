@@ -7,6 +7,7 @@ class UserRegister(BaseModel):
 class UserResponse(BaseModel):
     id: int
     email: EmailStr
+    role: str
 
     model_config = {
         "from_attributes": True
