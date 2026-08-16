@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status as http_status
 from sqlalchemy import String, func, select
 from sqlalchemy.orm import Session
 
@@ -23,10 +23,11 @@ router = APIRouter(
     tags=["Employees"]
 )
 
+# CREATE EMPLOYEE
 @router.post(
     "",
     response_model=EmployeeResponse,
-    status_code=status.HTTP_201_CREATED
+    status_code=http_status.HTTP_201_CREATED
 )
 def create_employee(
     employee_data: EmployeeCreate,
@@ -42,7 +43,7 @@ def create_employee(
 
     if existing_employee:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
+            status_code=http_status.HTTP_409_CONFLICT,
             detail="Employee number or email already exists"
         )
     
@@ -63,6 +64,7 @@ def create_employee(
 
     return(new_employee)
 
+# GET EMPLOYEES
 @router.get(
     "",
     response_model=EmployeeListResponse
@@ -71,11 +73,39 @@ def get_employees(
     status: Optional[EmployeeStatus] = None,
     department: Optional[str] = None,
     search: Optional[str] = None,
+    sort_by: str = Query(default="id"),
+    sort_order: str = Query(default="asc"),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=10, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+
+    # Sorting Fields and Validation
+    sort_fields = {
+        "id": Employee.id,
+        "employee_number": Employee.employee_number,
+        "first_name": Employee.first_name,
+        "last_name": Employee.last_name,
+        "department": Employee.department,
+        "position": Employee.position,
+        "date_hired": Employee.date_hired,
+        "status": Employee.status,
+    }
+
+    if sort_by not in sort_fields:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid sort field: {sort_by}"
+        )
+    
+    if sort_order not in {"asc", "desc"}:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="sort_order must be 'asc' or 'desc'"
+        )
+
+    # Main Query
     query = select(Employee)
 
     if status:
@@ -115,6 +145,14 @@ def get_employees(
     
     total = db.scalar(count_query) or 0
 
+    # Sort
+    sort_column = sort_fields[sort_by]
+
+    if sort_order == "desc":
+        query = query.order_by(sort_column.desc())
+    else:
+        query = query.order_by(sort_column.asc())
+
     # Calculate pagination
     offset = (page - 1) * limit
     pages = math.ceil(total / limit) if total > 0 else 0
@@ -134,6 +172,7 @@ def get_employees(
         "pages": pages
     }
 
+# GET EMPLOYEE (SPECIFIC)
 @router.get(
     "/{employee_id}",
     response_model=EmployeeResponse
@@ -149,12 +188,13 @@ def get_employee(
 
     if employee is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Employee not found"
         )
     
     return employee
 
+# UPDATE EMPLOYEE
 @router.put(
     "/{employee_id}",
     response_model=EmployeeResponse
@@ -171,7 +211,7 @@ def update_employee(
 
     if employee is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Employee not found"
         )
     
@@ -187,7 +227,7 @@ def update_employee(
 
     if existing_employee:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
+            status_code=http_status.HTTP_409_CONFLICT,
             detail="Employee number or email already exists"
         )
     
@@ -205,6 +245,7 @@ def update_employee(
 
     return employee
 
+# PARTIAL UPDATE EMPLOYEE
 @router.patch(
     "/{employee_id}",
     response_model=EmployeeResponse
@@ -221,7 +262,7 @@ def patch_employee(
 
     if employee is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Employee not found"
         )
 
@@ -239,7 +280,7 @@ def patch_employee(
 
         if existing_employee:
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
+                status_code=http_status.HTTP_409_CONFLICT,
                 detail="Email already exists"
             )
 
@@ -251,6 +292,7 @@ def patch_employee(
 
     return employee
 
+# DELETE EMPLOYEE (Update status to 'inactive')
 @router.delete(
     "/{employee_id}",
     response_model=EmployeeResponse
@@ -266,13 +308,13 @@ def delete_employee(
 
     if employee is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Employee not found"
         )
 
     if employee.status != "active":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail="Employee is already inactive"
         )
 
