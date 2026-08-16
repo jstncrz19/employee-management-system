@@ -5,6 +5,8 @@ from sqlalchemy import String, func, select
 from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user
+from app.core.permissions import require_admin
+
 from app.models.employee import Employee
 from app.models.user import User
 from app.schemas.employee import (
@@ -31,7 +33,7 @@ router = APIRouter(
 )
 def create_employee(
     employee_data: EmployeeCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     existing_employee = db.scalar(
@@ -202,7 +204,7 @@ def get_employee(
 def update_employee(
     employee_id: int,
     employee_data: EmployeeUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     employee = db.scalar(
@@ -253,7 +255,7 @@ def update_employee(
 def patch_employee(
     employee_id: int,
     employee_data: EmployeePatch,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     employee = db.scalar(
@@ -299,7 +301,7 @@ def patch_employee(
 )
 def delete_employee(
     employee_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     employee = db.scalar(
