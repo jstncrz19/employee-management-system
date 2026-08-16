@@ -1,7 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import String, func, select
 from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user
@@ -70,6 +70,7 @@ def create_employee(
 def get_employees(
     status: Optional[EmployeeStatus] = None,
     department: Optional[str] = None,
+    search: Optional[str] = None,
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=10, ge=1, le=100),
     current_user: User = Depends(get_current_user),
@@ -82,11 +83,37 @@ def get_employees(
     
     if department:
         query = query.where(Employee.department == department)
+    
+    if search:
+        search_term = f"%{search}%"
+
+        query = query.where(
+            (Employee.employee_number.cast(String).ilike(search_term))
+            | Employee.first_name.ilike(search_term)
+            | Employee.last_name.ilike(search_term)
+            | Employee.email.ilike(search_term)
+        )
 
     # Get total number of employees matching the filters
-    total = db.query(Employee).filter(
-        *query._where_criteria
-    ).count()
+    count_query = select(func.count()).select_from(Employee)
+
+    if status:
+        count_query = count_query.where(Employee.status == status)
+    
+    if department:
+        count_query = count_query.where(Employee.department == department)
+    
+    if search:
+        search_term = f"%{search}%"
+
+        count_query = count_query.where(
+            (Employee.employee_number.cast(String).ilike(search_term))
+            | Employee.first_name.ilike(search_term)
+            | Employee.last_name.ilike(search_term)
+            | Employee.email.ilike(search_term)
+        )
+    
+    total = db.scalar(count_query) or 0
 
     # Calculate pagination
     offset = (page - 1) * limit
