@@ -8,6 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.user import User
+from app.models.employee import Employee
+
 from config import JWT_SECRET_KEY
 from database import get_db
 
@@ -77,3 +79,22 @@ def get_current_user(
         raise credentials_exception
     
     return user
+
+def get_current_employee(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Employee:
+
+    employee = db.scalar(
+        select(Employee).where(
+            Employee.user_id == current_user.id
+        )
+    )
+
+    if employee is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Employee profile not found"
+        )
+
+    return employee

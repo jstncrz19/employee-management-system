@@ -4,7 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status as http_sta
 from sqlalchemy import String, func, select
 from sqlalchemy.orm import Session
 
-from app.core.security import get_current_user
+from app.core.security import (
+    get_current_user,
+    get_current_employee
+)
 from app.core.permissions import require_admin
 
 from app.models.employee import Employee
@@ -15,7 +18,8 @@ from app.schemas.employee import (
     EmployeeListResponse,
     EmployeeUpdate,
     EmployeePatch,
-    EmployeeStatus
+    EmployeeStatus,
+    EmployeeSelfUpdate
 )
 from database import get_db
 import math
@@ -79,7 +83,7 @@ def get_employees(
     sort_order: str = Query(default="asc"),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=10, ge=1, le=100),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
 
@@ -174,6 +178,52 @@ def get_employees(
         "pages": pages
     }
 
+# GET ME
+@router.get(
+    "/me",
+    response_model=EmployeeResponse
+)
+def get_my_employee(
+    current_employee: Employee = Depends(get_current_employee)
+):
+    return current_employee
+
+# PATCH SELF DETAILS
+@router.patch(
+    "/me",
+    response_model=EmployeeResponse
+)
+def update_my_employee(
+    employee_data: EmployeeSelfUpdate,
+    current_employee: Employee = Depends(get_current_employee),
+    db: Session = Depends(get_db)
+):
+    update_data = employee_data.model_dump(
+        exclude_unset=True
+    )
+
+    if "email" in update_data:
+        existing_employee = db.scalar(
+            select(Employee).where(
+                (Employee.email == update_data["email"])
+                & (Employee.id != current_employee.id)
+            )
+        )
+
+        if existing_employee:
+            raise HTTPException(
+                status_code=http_status.HTTP_409_CONFLICT,
+                detail="Email already exists"
+            )
+
+    for field, value in update_data.items():
+        setattr(current_employee, field, value)
+
+    db.commit()
+    db.refresh(current_employee)
+
+    return current_employee
+
 # GET EMPLOYEE (SPECIFIC)
 @router.get(
     "/{employee_id}",
@@ -193,6 +243,13 @@ def get_employee(
             status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Employee not found"
         )
+    
+    if current_user.role != "admin":
+        if employee.user_id != current_user.id:
+            raise HTTPException(
+                HTTP_403_FORBIDDEN,
+                detail="You can only access your own employee profile"
+            ) 
     
     return employee
 
