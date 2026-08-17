@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict, EmailStr
 
 from enum import Enum
 
+from typing import Optional
+
 class EmployeeStatus(str, Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
@@ -37,6 +39,13 @@ class EmployeePatch(BaseModel):
     department: str | None = None
     position: str | None = None
     status: EmployeeStatus | None = None
+
+class EmployeeSelfUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
 
 class EmployeeResponse(BaseModel):
     id: int
