@@ -14,6 +14,8 @@ from app.core.permissions import require_admin
 from app.models.user import User
 from app.models.attendance import Attendance
 from app.models.employee import Employee
+from app.models.leave import Leave, LeaveStatus
+
 from app.schemas.attendance import (
     AttendanceResponse,
     AttendanceListResponse
@@ -36,11 +38,27 @@ def check_in(
     db: Session = Depends(get_db)
 ):
     current_datetime = now()
+    today = current_datetime.date()
+
+    approved_leave = db.scalar(
+        select(Leave).where(
+            (Leave.employee_id == current_employee.id)
+            & (Leave.status == LeaveStatus.APPROVED.value)
+            & (Leave.start_date <= today)
+            & (Leave.end_date >= today)
+        )
+    )
+
+    if approved_leave:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You are on approved leave today"
+        )
 
     existing_attendance = db.scalar(
         select(Attendance).where(
             (Attendance.employee_id == current_employee.id)
-            & (Attendance.date == current_datetime.date())
+            & (Attendance.date == today)
         )
     )
 
@@ -52,7 +70,7 @@ def check_in(
     
     attendance = Attendance(
         employee_id=current_employee.id,
-        date=current_datetime.date(),
+        date=today,
         time_in=current_datetime.time(),
         status="present"
     )
@@ -73,11 +91,27 @@ def check_out(
     db: Session = Depends(get_db)
 ):
     current_datetime = now()
+    today = current_datetime.date()
+
+    approved_leave = db.scalar(
+        select(Leave).where(
+            (Leave.employee_id == current_employee.id)
+            & (Leave.status == LeaveStatus.APPROVED.value)
+            & (Leave.start_date <= today)
+            & (Leave.end_date >= today)
+        )
+    )
+
+    if approved_leave:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You are on approved leave today"
+        )
 
     attendance = db.scalar(
         select(Attendance).where(
             (Attendance.employee_id == current_employee.id)
-            & (Attendance.date == current_datetime.date())
+            & (Attendance.date == today)
         )
     )
 
