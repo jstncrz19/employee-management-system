@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.core.security import (
     get_current_user,
-    get_current_employee
+    get_current_employee,
+    hash_password
 )
 from app.core.permissions import require_admin
 
@@ -20,6 +21,10 @@ from app.schemas.employee import (
     EmployeePatch,
     EmployeeStatus,
     EmployeeSelfUpdate
+)
+from app.schemas.auth import (
+    EmployeeAccountCreate,
+    UserResponse
 )
 from database import get_db
 import math
@@ -69,6 +74,70 @@ def create_employee(
     db.refresh(new_employee)
 
     return(new_employee)
+
+# CREATE EMPLOYEE USER ACCOUNT
+@router.post(
+    "/{employee_id}/account",
+    response_model=UserResponse,
+    status_code=http_status.HTTP_201_CREATED
+)
+def create_employee_account(
+    employee_id: int,
+    account_data: EmployeeAccountCreate,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    employee = db.scalar(
+        select(Employee).where(
+            Employee.id == employee_id
+        )
+    )
+
+    if employee is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="Employee not found"
+        )
+
+    if employee.status != "active":
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Cannot create an account for an inactive employee"
+        )
+
+    if employee.user_id is not None:
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail="Employee already has a user account"
+        )
+
+    existing_user = db.scalar(
+        select(User).where(
+            User.email == account_data.email
+        )
+    )
+
+    if existing_user:
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail="Email is already registered"
+        )
+
+    new_user = User(
+        email=account_data.email,
+        password_hash=hash_password(account_data.password),
+        role="employee"
+    )
+
+    db.add(new_user)
+    db.flush()
+
+    employee.user_id = new_user.id
+
+    db.commit()
+    db.refresh(new_user)
+
+    return new_user
 
 # GET EMPLOYEES
 @router.get(
