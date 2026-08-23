@@ -6,6 +6,7 @@ from app.routers.employees import router as employee_router
 from app.routers.attendance import router as attendance_router
 from app.routers.leaves import router as leaves_router
 from app.routers.dashboard import router as dashboard_router
+from app.routers.audit import router as audit_router
 
 app = FastAPI(
     title="Employee Management System API"
@@ -17,6 +18,7 @@ app.include_router(employee_router)
 app.include_router(attendance_router)
 app.include_router(leaves_router)
 app.include_router(dashboard_router)
+app.include_router(audit_router)
 
 @app.get("/")
 def root():

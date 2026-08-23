@@ -3,3 +3,4 @@ from app.models.employee import Employee
 from app.models.attendance import Attendance
 from app.models.leave import Leave, LeaveStatus, LeaveType
 from app.models.leave_balance import LeaveBalance
+from app.models.audit_log import AuditLog

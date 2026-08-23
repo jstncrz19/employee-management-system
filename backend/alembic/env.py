@@ -31,7 +31,14 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 
 from database import Base
-from app.models import User
+from app.models import (
+    User,
+    Employee,
+    Attendance,
+    Leave,
+    LeaveBalance,
+    AuditLog
+)
 
 target_metadata = Base.metadata
 

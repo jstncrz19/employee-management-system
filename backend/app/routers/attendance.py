@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.time import now
 from app.core.security import get_current_employee
 from app.core.permissions import require_admin
+from app.core.audit import create_audit_log
 
 from app.models.user import User
 from app.models.attendance import Attendance
@@ -76,6 +77,20 @@ def check_in(
     )
 
     db.add(attendance)
+    db.flush()
+
+    create_audit_log(
+        db=db,
+        user_id=current_employee.user_id,
+        action="check_in",
+        entity_type="attendance",
+        entity_id=attendance.id,
+        details=(
+            f"Checked in on {attendance.date} "
+            f"at {attendance.time_in}"
+        )
+    )
+
     db.commit()
     db.refresh(attendance)
 
@@ -128,6 +143,18 @@ def check_out(
         )
 
     attendance.time_out = current_datetime.time()
+
+    create_audit_log(
+        db=db,
+        user_id=current_employee.user_id,
+        action="check_out",
+        entity_type="attendance",
+        entity_id=attendance.id,
+        details=(
+            f"Checked out on {attendance.date} "
+            f"at {attendance.time_out}"
+        )
+    )
 
     db.commit()
     db.refresh(attendance)
