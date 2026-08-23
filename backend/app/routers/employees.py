@@ -10,6 +10,7 @@ from app.core.security import (
     hash_password
 )
 from app.core.permissions import require_admin
+from app.core.audit import create_audit_log
 
 from app.models.employee import Employee
 from app.models.user import User
@@ -70,6 +71,21 @@ def create_employee(
     )
 
     db.add(new_employee)
+    db.flush()
+
+    create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="create",
+        entity_type="employee",
+        entity_id=new_employee.id,
+        details=(
+            f"Created employee {new_employee.first_name} "
+            f"{new_employee.last_name} "
+            f"(employee number {new_employee.employee_number})"
+        )
+    )
+
     db.commit()
     db.refresh(new_employee)
 
@@ -133,6 +149,18 @@ def create_employee_account(
     db.flush()
 
     employee.user_id = new_user.id
+
+    create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="create",
+        entity_type="user",
+        entity_id=new_user.id,
+        details=(
+            f"Created employee account for "
+            f"{employee.first_name} {employee.last_name}"
+        )
+    )
 
     db.commit()
     db.refresh(new_user)
@@ -368,6 +396,18 @@ def update_employee(
     employee.date_hired = employee_data.date_hired
     employee.status = employee_data.status
 
+    create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="update",
+        entity_type="employee",
+        entity_id=employee.id,
+        details=(
+            f"Updated employee {employee.first_name} "
+            f"{employee.last_name}"
+        )
+    )
+
     db.commit()
     db.refresh(employee)
 
@@ -414,6 +454,19 @@ def patch_employee(
 
     for field, value in update_data.items():
         setattr(employee, field, value)
+    
+    create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="update",
+        entity_type="employee",
+        entity_id=employee.id,
+        details=(
+            f"Updated employee {employee.first_name} "
+            f"{employee.last_name}: "
+            f"{', '.join(update_data.keys())}"
+        )
+    )
 
     db.commit()
     db.refresh(employee)
@@ -447,6 +500,18 @@ def delete_employee(
         )
 
     employee.status = "inactive"
+
+    create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="deactivate",
+        entity_type="employee",
+        entity_id=employee.id,
+        details=(
+            f"Deactivated employee {employee.first_name} "
+            f"{employee.last_name}"
+        )
+    )
 
     db.commit()
     db.refresh(employee)

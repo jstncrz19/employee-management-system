@@ -7,6 +7,7 @@ import math
 
 from app.core.security import get_current_user
 from app.core.permissions import require_admin
+from app.core.audit import create_audit_log
 from app.core.time import now
 
 from app.models.employee import Employee
@@ -95,6 +96,20 @@ def create_leave(
     )
 
     db.add(new_leave)
+    db.flush()
+
+    create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="create",
+        entity_type="leave",
+        entity_id=new_leave.id,
+        details=(
+            f"Submitted {new_leave.leave_type.value} leave "
+            f"from {new_leave.start_date} to {new_leave.end_date}"
+        )
+    )
+
     db.commit()
     db.refresh(new_leave)
 
@@ -346,6 +361,19 @@ def update_leave_balance(
 
     balance.total_days = balance_data.total_days
 
+    create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="update",
+        entity_type="leave_balance",
+        entity_id=balance.id,
+        details=(
+            f"Updated {leave_type.value} leave balance for "
+            f"employee {employee_id}: "
+            f"total_days set to {balance.total_days}"
+        )
+    )
+
     db.commit()
     db.refresh(balance)
 
@@ -410,12 +438,6 @@ def cancel_leave(
             detail="Only pending or approved leave requests can be cancelled"
         )
 
-    # if leave.status != LeaveStatus.PENDING:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST,
-    #         detail="Only pending leave requests can be cancelled"
-    #     )
-
     if leave.status == LeaveStatus.APPROVED:
         balance = db.scalar(
             select(LeaveBalance).where(
@@ -441,6 +463,18 @@ def cancel_leave(
 
     leave.status = LeaveStatus.CANCELLED
     leave.updated_at = now()
+
+    create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="cancel",
+        entity_type="leave",
+        entity_id=leave.id,
+        details=(
+            f"Cancelled {leave.leave_type} leave "
+            f"from {leave.start_date} to {leave.end_date}"
+        )
+    )
 
     db.commit()
     db.refresh(leave)
@@ -511,6 +545,20 @@ def approve_leave(
 
     balance.used_days += requested_days
 
+    create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="approve",
+        entity_type="leave",
+        entity_id=leave.id,
+        details=(
+            f"Approved {leave.leave_type} leave "
+            f"for employee {leave.employee_id} "
+            f"from {leave.start_date} to {leave.end_date} "
+            f"({requested_days} days)"
+        )
+    )
+
     db.commit()
     db.refresh(leave)
 
@@ -546,6 +594,19 @@ def reject_leave(
 
     leave.status = LeaveStatus.REJECTED
     leave.updated_at = now()
+
+    create_audit_log(
+        db=db,
+        user_id=current_user.id,
+        action="reject",
+        entity_type="leave",
+        entity_id=leave.id,
+        details=(
+            f"Rejected {leave.leave_type} leave "
+            f"for employee {leave.employee_id} "
+            f"from {leave.start_date} to {leave.end_date}"
+        )
+    )
 
     db.commit()
     db.refresh(leave)
