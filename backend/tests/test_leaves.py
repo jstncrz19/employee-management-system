@@ -1,5 +1,7 @@
 from datetime import date, timedelta
 
+from sqlalchemy import select
+
 from app.core.security import create_access_token, hash_password
 from app.core.time import now
 from app.models.audit_log import AuditLog
@@ -1216,3 +1218,286 @@ def test_leave_audit_logs(client, db_session):
     for log in logs:
         assert log.entity_type == "leave"
         assert log.entity_id == leave_id
+
+def test_approve_leave_updates_leave_balance_and_audit_log(
+    client,
+    db_session
+):
+    from datetime import date
+
+    from app.core.security import create_access_token, hash_password
+    from app.models.audit_log import AuditLog
+    from app.models.employee import Employee
+    from app.models.leave import Leave, LeaveStatus, LeaveType
+    from app.models.leave_balance import LeaveBalance
+    from app.models.user import User
+
+    admin = User(
+        email="transaction.admin@test.com",
+        password_hash=hash_password("adminpassword"),
+        role="admin"
+    )
+
+    employee_user = User(
+        email="transaction.employee@test.com",
+        password_hash=hash_password("testpassword123"),
+        role="employee"
+    )
+
+    db_session.add_all([admin, employee_user])
+    db_session.commit()
+
+    db_session.refresh(admin)
+    db_session.refresh(employee_user)
+
+    employee = Employee(
+        user_id=employee_user.id,
+        employee_number=92001,
+        first_name="Transaction",
+        last_name="Employee",
+        email="transaction.employee.profile@test.com",
+        department="IT",
+        position="Developer",
+        date_hired=date(2026, 8, 24),
+        status="active"
+    )
+
+    balance = LeaveBalance(
+        employee_id=employee.id,
+        leave_type=LeaveType.VACATION,
+        total_days=15,
+        used_days=0
+    )
+
+    db_session.add(employee)
+    db_session.commit()
+    db_session.refresh(employee)
+
+    balance.employee_id = employee.id
+    db_session.add(balance)
+
+    leave = Leave(
+        employee_id=employee.id,
+        leave_type=LeaveType.VACATION,
+        start_date=date(2026, 9, 1),
+        end_date=date(2026, 9, 3),
+        reason="Transaction test",
+        status=LeaveStatus.PENDING,
+        created_at=now(),
+        updated_at=now()
+    )
+
+    db_session.add(leave)
+    db_session.commit()
+    db_session.refresh(leave)
+
+    response = client.patch(
+        f"/leaves/{leave.id}/approve",
+        headers={
+            "Authorization": f"Bearer {create_access_token(admin.id)}"
+        }
+    )
+
+    assert response.status_code == 200
+
+    db_session.refresh(leave)
+    db_session.refresh(balance)
+
+    assert leave.status == LeaveStatus.APPROVED
+    assert balance.used_days == 3
+
+    audit_log = db_session.scalar(
+        select(AuditLog).where(
+            (AuditLog.entity_type == "leave")
+            & (AuditLog.entity_id == leave.id)
+            & (AuditLog.action == "approve")
+        )
+    )
+
+    assert audit_log is not None
+    assert audit_log.user_id == admin.id
+
+
+def test_cancel_approved_leave_restores_balance_and_creates_audit_log(
+    client,
+    db_session
+):
+    from datetime import date
+
+    from app.core.security import create_access_token, hash_password
+    from app.models.audit_log import AuditLog
+    from app.models.employee import Employee
+    from app.models.leave import Leave, LeaveStatus, LeaveType
+    from app.models.leave_balance import LeaveBalance
+    from app.models.user import User
+
+    employee_user = User(
+        email="cancel.transaction@test.com",
+        password_hash=hash_password("testpassword123"),
+        role="employee"
+    )
+
+    db_session.add(employee_user)
+    db_session.commit()
+    db_session.refresh(employee_user)
+
+    employee = Employee(
+        user_id=employee_user.id,
+        employee_number=92002,
+        first_name="Cancel",
+        last_name="Transaction",
+        email="cancel.transaction.profile@test.com",
+        department="IT",
+        position="Developer",
+        date_hired=date(2026, 8, 24),
+        status="active"
+    )
+
+    db_session.add(employee)
+    db_session.commit()
+    db_session.refresh(employee)
+
+    balance = LeaveBalance(
+        employee_id=employee.id,
+        leave_type=LeaveType.VACATION,
+        total_days=15,
+        used_days=3
+    )
+
+    leave = Leave(
+        employee_id=employee.id,
+        leave_type=LeaveType.VACATION,
+        start_date=date(2026, 9, 1),
+        end_date=date(2026, 9, 3),
+        reason="Cancellation transaction test",
+        status=LeaveStatus.APPROVED,
+        created_at=now(),
+        updated_at=now()
+    )
+
+    db_session.add_all([balance, leave])
+    db_session.commit()
+    db_session.refresh(leave)
+    db_session.refresh(balance)
+
+    response = client.patch(
+        f"/leaves/{leave.id}/cancel",
+        headers={
+            "Authorization": f"Bearer {create_access_token(employee_user.id)}"
+        }
+    )
+
+    assert response.status_code == 200
+
+    db_session.refresh(leave)
+    db_session.refresh(balance)
+
+    assert leave.status == LeaveStatus.CANCELLED
+    assert balance.used_days == 0
+
+    audit_log = db_session.scalar(
+        select(AuditLog).where(
+            (AuditLog.entity_type == "leave")
+            & (AuditLog.entity_id == leave.id)
+            & (AuditLog.action == "cancel")
+        )
+    )
+
+    assert audit_log is not None
+    assert audit_log.user_id == employee_user.id
+
+
+def test_reject_leave_creates_audit_log_without_changing_balance(
+    client,
+    db_session
+):
+    from datetime import date
+
+    from app.core.security import create_access_token, hash_password
+    from app.models.audit_log import AuditLog
+    from app.models.employee import Employee
+    from app.models.leave import Leave, LeaveStatus, LeaveType
+    from app.models.leave_balance import LeaveBalance
+    from app.models.user import User
+
+    admin = User(
+        email="reject.transaction.admin@test.com",
+        password_hash=hash_password("adminpassword"),
+        role="admin"
+    )
+
+    employee_user = User(
+        email="reject.transaction.employee@test.com",
+        password_hash=hash_password("testpassword123"),
+        role="employee"
+    )
+
+    db_session.add_all([admin, employee_user])
+    db_session.commit()
+
+    db_session.refresh(admin)
+    db_session.refresh(employee_user)
+
+    employee = Employee(
+        user_id=employee_user.id,
+        employee_number=92003,
+        first_name="Reject",
+        last_name="Transaction",
+        email="reject.transaction.profile@test.com",
+        department="IT",
+        position="Developer",
+        date_hired=date(2026, 8, 24),
+        status="active"
+    )
+
+    db_session.add(employee)
+    db_session.commit()
+    db_session.refresh(employee)
+
+    balance = LeaveBalance(
+        employee_id=employee.id,
+        leave_type=LeaveType.VACATION,
+        total_days=15,
+        used_days=2
+    )
+
+    leave = Leave(
+        employee_id=employee.id,
+        leave_type=LeaveType.VACATION,
+        start_date=date(2026, 9, 5),
+        end_date=date(2026, 9, 6),
+        reason="Reject transaction test",
+        status=LeaveStatus.PENDING,
+        created_at=now(),
+        updated_at=now()
+    )
+
+    db_session.add_all([balance, leave])
+    db_session.commit()
+    db_session.refresh(leave)
+
+    response = client.patch(
+        f"/leaves/{leave.id}/reject",
+        headers={
+            "Authorization": f"Bearer {create_access_token(admin.id)}"
+        }
+    )
+
+    assert response.status_code == 200
+
+    db_session.refresh(leave)
+    db_session.refresh(balance)
+
+    assert leave.status == LeaveStatus.REJECTED
+    assert balance.used_days == 2
+
+    audit_log = db_session.scalar(
+        select(AuditLog).where(
+            (AuditLog.entity_type == "leave")
+            & (AuditLog.entity_id == leave.id)
+            & (AuditLog.action == "reject")
+        )
+    )
+
+    assert audit_log is not None
+    assert audit_log.user_id == admin.id

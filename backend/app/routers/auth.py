@@ -9,6 +9,7 @@ from app.core.security import (
     verify_password
 )
 from app.models.user import User
+from app.models.employee import Employee
 from app.schemas.auth import Token, UserRegister, UserResponse
 from database import get_db
 
@@ -66,6 +67,26 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
         )
+    
+    # Admin accounts are not required to have an employee profile.
+    if user.role == "employee":
+        employee = db.scalar(
+            select(Employee).where(
+                Employee.user_id == user.id
+            )
+        )
+
+        if employee is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Employee profile not found"
+            )
+
+        if employee.status != "active":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Employee account is inactive"
+            )
     
     access_token = create_access_token(user.id)
 
