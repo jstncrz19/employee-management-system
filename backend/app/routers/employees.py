@@ -344,7 +344,7 @@ def get_employee(
     if current_user.role != "admin":
         if employee.user_id != current_user.id:
             raise HTTPException(
-                HTTP_403_FORBIDDEN,
+                status_code=http_status.HTTP_403_FORBIDDEN,
                 detail="You can only access your own employee profile"
             ) 
     
