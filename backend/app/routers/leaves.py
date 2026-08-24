@@ -105,7 +105,7 @@ def create_leave(
         entity_type="leave",
         entity_id=new_leave.id,
         details=(
-            f"Submitted {new_leave.leave_type.value} leave "
+            f"Submitted {new_leave.leave_type} leave "
             f"from {new_leave.start_date} to {new_leave.end_date}"
         )
     )

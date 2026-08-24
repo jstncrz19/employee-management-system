@@ -97,4 +97,10 @@ def get_current_employee(
             detail="Employee profile not found"
         )
 
+    if employee.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Employee account is inactive"
+        )
+
     return employee

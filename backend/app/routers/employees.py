@@ -346,7 +346,13 @@ def get_employee(
             raise HTTPException(
                 status_code=http_status.HTTP_403_FORBIDDEN,
                 detail="You can only access your own employee profile"
-            ) 
+            )
+        
+        if employee.status != "active":
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="Employee account is inactive"
+            )
     
     return employee
 
