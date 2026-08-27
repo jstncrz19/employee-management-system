@@ -16,7 +16,7 @@ jobs:
         env:
           POSTGRES_DB: employee_management_test
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: testpassword
         ports:
           - 5432:5432
         options: >-
@@ -45,12 +45,12 @@ jobs:
 
       - name: Run database migrations
         env:
-          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/employee_management_test
+          DATABASE_URL: postgresql+psycopg://postgres:testpassword@localhost:5432/employee_management_test
           JWT_SECRET_KEY: test-secret-key
         run: alembic upgrade head
 
       - name: Run tests
         env:
-          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/employee_management_test
+          DATABASE_URL: postgresql+psycopg://postgres:testpassword@localhost:5432/employee_management_test
           JWT_SECRET_KEY: test-secret-key
         run: pytest
