@@ -9,7 +9,12 @@ from app.routers.dashboard import router as dashboard_router
 from app.routers.audit import router as audit_router
 
 app = FastAPI(
-    title="Employee Management System API"
+    title="Employee Management System API",
+    description=(
+        "REST API for employee management, attendance, "
+        "leave management, and audit logging."
+    ),
+    version="1.0.0",
 )
 
 app.include_router(auth_router)
@@ -24,3 +29,6 @@ app.include_router(audit_router)
 def root():
     return {"message": "Employee Management System API"}
 
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
