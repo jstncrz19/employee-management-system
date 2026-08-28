@@ -10,13 +10,14 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 from app.models.employee import Employee
 
-from config import JWT_SECRET_KEY
+from config import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    JWT_ALGORITHM,
+    JWT_SECRET_KEY,
+)
 from database import get_db
 
 password_hash = PasswordHash.recommended()
-
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -40,7 +41,7 @@ def create_access_token(user_id: int) -> str:
     return jwt.encode(
         payload,
         JWT_SECRET_KEY,
-        algorithm=ALGORITHM
+        algorithm=JWT_ALGORITHM
     )
 
 def get_current_user(
@@ -58,7 +59,7 @@ def get_current_user(
         payload = jwt.decode(
             token,
             JWT_SECRET_KEY,
-            algorithms=[ALGORITHM]
+            algorithms=[JWT_ALGORITHM]
         )
 
         user_id = payload.get("sub")
