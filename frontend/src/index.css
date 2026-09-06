@@ -25,6 +25,8 @@ a {
     text-decoration: none;
 }
 
+/* ---------------------------------------------------------------- nav */
+
 nav {
     min-height: 64px;
     padding: 0 32px;
@@ -52,6 +54,12 @@ nav a:hover {
     color: #111827;
 }
 
+nav .btn-sm {
+    font-size: 14px;
+}
+
+/* ----------------------------------------------------- page structure */
+
 main,
 .dashboard-container,
 .page-container {
@@ -65,8 +73,20 @@ h1 {
     font-size: 30px;
 }
 
+h2,
+h3,
+h4 {
+    margin-top: 0;
+}
+
 h2 {
     font-size: 20px;
+    margin-bottom: 14px;
+}
+
+h3 {
+    font-size: 16px;
+    margin-bottom: 10px;
 }
 
 section {
@@ -77,23 +97,56 @@ section {
     padding: 24px;
 }
 
+/* ------------------------------------------------------------ buttons */
+
 button {
-    border: 0;
+    border: 1px solid #d1d5db;
     border-radius: 6px;
     padding: 9px 14px;
-    background: #2563eb;
-    color: white;
+    background: #ffffff;
+    color: #374151;
     font-weight: 500;
+    line-height: 1.25;
 }
 
-button:hover {
-    background: #1d4ed9;
+button:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #c9ccd2;
 }
 
 button:disabled {
     cursor: not-allowed;
-    opacity: 0.6;
+    opacity: 0.55;
 }
+
+.btn-primary {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #1d4ed9;
+    border-color: #1d4ed9;
+}
+
+.btn-danger {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #ffffff;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: #b91c1c;
+    border-color: #b91c1c;
+}
+
+.btn-sm {
+    padding: 5px 10px;
+    font-size: 13px;
+}
+
+/* ---------------------------------------------------------- controls */
 
 input,
 select,
@@ -103,6 +156,7 @@ textarea {
     border: 1px solid #d1d5db;
     border-radius: 6px;
     background: white;
+    line-height: 1.25;
 }
 
 input:focus,
@@ -117,13 +171,31 @@ textarea {
     resize: vertical;
 }
 
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.toolbar input,
+.toolbar select {
+    width: auto;
+    min-width: 180px;
+}
+
+.toolbar button {
+    white-space: nowrap;
+}
+
 form {
     display: grid;
     gap: 16px;
     max-width: 600px;
 }
 
-form div {
+form > div {
     display: grid;
     gap: 6px;
 }
@@ -131,33 +203,66 @@ form div {
 label {
     font-size: 14px;
     font-weight: 500;
+    color: #374151;
+}
+
+/* ------------------------------------------------------------ tables */
+
+.table-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 th,
 td {
-    padding: 13px 12px;
+    padding: 12px 14px;
     text-align: left;
     border-bottom: 1px solid #e5e7eb;
+    vertical-align: middle;
 }
 
 th {
     background: #f9fafb;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #374151;
+    text-transform: uppercase;
 }
 
 td {
     font-size: 14px;
 }
 
+tbody tr:hover {
+    background: #f9fafb;
+}
+
 tr:last-child td {
     border-bottom: 0;
 }
+
+.action-cell {
+    white-space: nowrap;
+}
+
+.action-cell button {
+    margin-right: 6px;
+}
+
+.action-cell button:last-child {
+    margin-right: 0;
+}
+
+/* ----------------------------------------------------------- banners */
 
 .error {
     margin-bottom: 16px;
@@ -174,6 +279,8 @@ tr:last-child td {
     background: #dcfce7;
     color: #166534;
 }
+
+/* ------------------------------------------------------ status areas */
 
 .status-state {
     margin: 16px 0;
@@ -208,6 +315,40 @@ tr:last-child td {
     color: #9ca3af;
 }
 
+/* ------------------------------------------------------------ badges */
+
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.badge-success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge-warning {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-danger {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-neutral {
+    background: #f3f4f6;
+    color: #4b5563;
+}
+
+/* ----------------------------------------------------- dashboard cards */
+
 .dashboard-cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -236,6 +377,7 @@ tr:last-child td {
     padding: 9px 14px;
     border-radius: 6px;
     background: #2563eb;
+    border: 1px solid #2563eb;
     color: white;
     font-weight: 500;
     text-decoration: none;
@@ -243,8 +385,11 @@ tr:last-child td {
 
 .link-button:hover {
     background: #1d4ed9;
+    border-color: #1d4ed9;
     color: white;
 }
+
+/* ------------------------------------------------------------- mobile */
 
 @media (max-width: 800px) {
     nav {
@@ -252,23 +397,34 @@ tr:last-child td {
         flex-direction: column;
         align-items: flex-start;
     }
-    
+
     nav div {
         flex-wrap: wrap;
         gap: 12px;
     }
-    
+
     .dashboard-cards {
         grid-template-columns: 1fr;
     }
+
     main,
     .dashboard-container,
     .page-container {
-        padding: 20px;
+        padding: 16px;
     }
-    
-    table {
-        display: block;
-        overflow-x: auto;
+
+    section {
+        padding: 18px;
+    }
+
+    th,
+    td {
+        padding: 10px;
+    }
+
+    .toolbar input,
+    .toolbar select {
+        min-width: 0;
+        flex: 1 1 160px;
     }
 }

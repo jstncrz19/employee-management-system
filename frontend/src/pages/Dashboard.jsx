@@ -4,6 +4,7 @@ import Navbar from "../components/Navbar";
 import Loading from "../components/Loading";
 import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
+import StatusBadge from "../components/StatusBadge";
 import api from "../services/api";
 import { getErrorMessage } from "../utils/errorMessage";
 
@@ -114,10 +115,11 @@ function Dashboard() {
                     Time Out:{" "}
                     {dashboard.attendance_today.time_out || "Not checked out"}
                   </p>
-                  <p>Status: {dashboard.attendance_today.status}</p>
+                  <p>Status: <StatusBadge status={dashboard.attendance_today.status} /></p>
 
                   {!dashboard.attendance_today.time_out && (
                     <button
+                      className="btn-primary"
                       onClick={() => handleAttendanceAction("check-out")}
                       disabled={actionLoading}
                     >
@@ -129,6 +131,7 @@ function Dashboard() {
                 <div>
                   <p>No attendance recorded today.</p>
                   <button
+                    className="btn-primary"
                     onClick={() => handleAttendanceAction("check-in")}
                     disabled={actionLoading}
                   >

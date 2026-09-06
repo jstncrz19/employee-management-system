@@ -3,7 +3,7 @@ function ErrorState({ message, onRetry, retryLabel = "Retry" }) {
     <div className="status-state status-state-error">
       <p>{message}</p>
       {onRetry && (
-        <button type="button" onClick={onRetry}>
+        <button className="btn-primary" type="button" onClick={onRetry}>
           {retryLabel}
         </button>
       )}

@@ -5,6 +5,7 @@ import Navbar from "../components/Navbar";
 import Loading from "../components/Loading";
 import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
+import StatusBadge from "../components/StatusBadge";
 import { getErrorMessage } from "../utils/errorMessage";
 
 const LIMIT = 10;
@@ -73,7 +74,7 @@ function AdminAttendance() {
       <Navbar />
       <main className="page-container">
         <h1>Attendance</h1>
-        <div>
+        <div className="toolbar">
           <input
             type="search"
             placeholder="Search name, number, or email"
@@ -89,8 +90,8 @@ function AdminAttendance() {
           <label htmlFor="attendance-end-date">To</label>
           <input id="attendance-end-date" type="date" value={endDate}
             onChange={(event) => setEndDate(event.target.value)} />
-          <button type="button" onClick={applyFilters}>Search</button>
-          <button type="button" onClick={clearFilters}>Clear Filters</button>
+          <button className="btn-secondary" type="button" onClick={applyFilters}>Search</button>
+          <button className="btn-secondary" type="button" onClick={clearFilters}>Clear Filters</button>
         </div>
 
         {loading ? (
@@ -111,26 +112,29 @@ function AdminAttendance() {
         ) : (
           <>
             <p>Showing {attendance.length} of {total} attendance records</p>
-            <table>
-              <thead><tr><th>Employee</th><th>Employee #</th><th>Date</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>
-              <tbody>
-                {attendance.map((record) => (
-                  <tr key={record.id}>
-                    <td>{record.employee_name || `Employee #${record.employee_id}`}</td>
-                    <td>{record.employee_number || "—"}</td>
-                    <td>{record.date}</td><td>{record.time_in || "—"}</td>
-                    <td>{record.time_out || "—"}</td><td>{record.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="table-wrapper">
+              <table>
+                <thead><tr><th>Employee</th><th>Employee #</th><th>Date</th><th>Time In</th><th>Time Out</th><th>Status</th></tr></thead>
+                <tbody>
+                  {attendance.map((record) => (
+                    <tr key={record.id}>
+                      <td>{record.employee_name || `Employee #${record.employee_id}`}</td>
+                      <td>{record.employee_number || "—"}</td>
+                      <td>{record.date}</td><td>{record.time_in || "—"}</td>
+                      <td>{record.time_out || "—"}</td>
+                      <td><StatusBadge status={record.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
-        <div>
-          <button type="button" disabled={loading || page <= 1}
+        <div className="toolbar">
+          <button className="btn-secondary" type="button" disabled={loading || page <= 1}
             onClick={() => setPage((current) => current - 1)}>Previous</button>
           <span> Page {page} of {pages} </span>
-          <button type="button" disabled={loading || page >= pages}
+          <button className="btn-secondary" type="button" disabled={loading || page >= pages}
             onClick={() => setPage((current) => current + 1)}>Next</button>
         </div>
       </main>

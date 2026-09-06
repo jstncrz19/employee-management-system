@@ -5,6 +5,7 @@ import Navbar from "../components/Navbar";
 import Loading from "../components/Loading";
 import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
+import StatusBadge from "../components/StatusBadge";
 import { getErrorMessage } from "../utils/errorMessage";
 
 function Employees() {
@@ -437,6 +438,7 @@ function Employees() {
         {message && <div className="success">{message}</div>}
 
         <button
+          className="btn-primary"
           onClick={() => {
             setShowForm((current) => !current);
             setError("");
@@ -546,6 +548,7 @@ function Employees() {
               </div>
 
               <button
+                className="btn-primary"
                 type="submit"
                 disabled={submitting}
               >
@@ -649,11 +652,12 @@ function Employees() {
                 </select>
               </div>
 
-              <button type="submit">
+              <button className="btn-primary" type="submit">
                 Save Changes
               </button>
 
               <button
+                className="btn-secondary"
                 type="button"
                 onClick={() => setEditingEmployee(null)}
               >
@@ -704,6 +708,7 @@ function Employees() {
               </div>
 
               <button
+                className="btn-primary"
                 type="submit"
                 disabled={accountSubmitting}
               >
@@ -713,6 +718,7 @@ function Employees() {
               </button>
 
               <button
+                className="btn-secondary"
                 type="button"
                 onClick={() => setAccountEmployee(null)}
               >
@@ -779,6 +785,7 @@ function Employees() {
                     </p>
 
                     <button
+                      className="btn-primary"
                       type="button"
                       onClick={() =>
                         handleBalanceUpdate(balance)
@@ -799,6 +806,7 @@ function Employees() {
             )}
 
             <button
+              className="btn-secondary"
               type="button"
               onClick={() =>
                 setBalanceEmployee(null)
@@ -812,7 +820,7 @@ function Employees() {
         <section>
           <h2>Employees</h2>
 
-          <div>
+          <div className="toolbar">
             <input
               type="text"
               placeholder="Search name, employee number, or email..."
@@ -827,6 +835,7 @@ function Employees() {
               }}
             />
             <button
+              className="btn-secondary"
               type="button"
               onClick={handleSearch}
             >
@@ -856,6 +865,7 @@ function Employees() {
             />
 
             <button
+              className="btn-secondary"
               type="button"
               onClick={handleClearFilters}
             >
@@ -884,81 +894,90 @@ function Employees() {
               }
             />
           ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Employee #</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Department</th>
-                  <th>Position</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {employees.map((employee) => (
-                  <tr key={employee.id}>
-                    <td>{employee.employee_number}</td>
-
-                    <td>
-                      {employee.first_name}{" "}
-                      {employee.last_name}
-                    </td>
-
-                    <td>{employee.email}</td>
-
-                    <td>{employee.department}</td>
-
-                    <td>{employee.position}</td>
-
-                    <td>{employee.status}</td>
-
-                    <td>
-                      <button
-                        onClick={() =>
-                          handleEditClick(employee)
-                        }
-                      >
-                        Edit
-                      </button>
-
-                      {employee.status === "active" && (
-                        <button
-                          onClick={() =>
-                            handleDeactivate(employee)
-                          }
-                        >
-                          Deactivate
-                        </button>
-                      )}
-
-                      {employee.status === "active" && (
-                        <button
-                          onClick={() =>
-                            handleAccountClick(employee)
-                          }
-                        >
-                          Create Account
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() =>
-                          handleBalanceClick(employee)
-                        }
-                      >
-                        Leave Balances
-                      </button>
-                    </td>
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Employee #</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Department</th>
+                    <th>Position</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {employees.map((employee) => (
+                    <tr key={employee.id}>
+                      <td>{employee.employee_number}</td>
+
+                      <td>
+                        {employee.first_name}{" "}
+                        {employee.last_name}
+                      </td>
+
+                      <td>{employee.email}</td>
+
+                      <td>{employee.department}</td>
+
+                      <td>{employee.position}</td>
+
+                      <td>
+                        <StatusBadge status={employee.status} />
+                      </td>
+
+                      <td className="action-cell">
+                        <button
+                          className="btn-sm"
+                          onClick={() =>
+                            handleEditClick(employee)
+                          }
+                        >
+                          Edit
+                        </button>
+
+                        {employee.status === "active" && (
+                          <button
+                            className="btn-sm btn-danger"
+                            onClick={() =>
+                              handleDeactivate(employee)
+                            }
+                          >
+                            Deactivate
+                          </button>
+                        )}
+
+                        {employee.status === "active" && (
+                          <button
+                            className="btn-sm"
+                            onClick={() =>
+                              handleAccountClick(employee)
+                            }
+                          >
+                            Create Account
+                          </button>
+                        )}
+
+                        <button
+                          className="btn-sm"
+                          onClick={() =>
+                            handleBalanceClick(employee)
+                          }
+                        >
+                          Leave Balances
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
-          <div>
+          <div className="toolbar">
             <button
+              className="btn-secondary"
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((current) => current - 1)}
@@ -972,6 +991,7 @@ function Employees() {
             </span>
 
             <button
+              className="btn-secondary"
               type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((current) => current + 1)}

@@ -81,7 +81,8 @@ function AuditLogs() {
           <EmptyState message="No audit logs yet." />
         ) : (
           <>
-            <table>
+            <div className="table-wrapper">
+              <table>
               <thead>
                 <tr>
                   <th>User / Employee</th>
@@ -125,13 +126,15 @@ function AuditLogs() {
                 ))}
               </tbody>
             </table>
+            </div>
 
-            <div>
+            <div className="toolbar">
               <p>
                 Showing page {page} of {pages} — {total} total logs
               </p>
 
               <button
+                className="btn-secondary"
                 onClick={handlePrevious}
                 disabled={page <= 1}
               >
@@ -141,6 +144,7 @@ function AuditLogs() {
               {" "}
 
               <button
+                className="btn-secondary"
                 onClick={handleNext}
                 disabled={page >= pages}
               >

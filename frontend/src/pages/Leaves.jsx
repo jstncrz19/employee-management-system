@@ -5,6 +5,7 @@ import Navbar from "../components/Navbar";
 import Loading from "../components/Loading";
 import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
+import StatusBadge from "../components/StatusBadge";
 import { getErrorMessage } from "../utils/errorMessage";
 
 function Leaves() {
@@ -218,7 +219,7 @@ function Leaves() {
                   />
                 </div>
 
-                <button type="submit" disabled={submitting}>
+                <button className="btn-primary" type="submit" disabled={submitting}>
                   {submitting
                     ? "Submitting..."
                     : "Submit Leave Request"}
@@ -242,7 +243,7 @@ function Leaves() {
                       </div>
 
                       <div>
-                        Status: {leave.status}
+                        Status: <StatusBadge status={leave.status} />
                       </div>
 
                       {leave.reason && (
@@ -254,6 +255,7 @@ function Leaves() {
                       {(leave.status === "pending" ||
                         leave.status === "approved") && (
                         <button
+                          className="btn-sm btn-danger"
                           onClick={() => handleCancel(leave.id)}
                           disabled={cancellingId !== null}
                         >
