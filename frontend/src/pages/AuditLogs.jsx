@@ -2,11 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 
 import api from "../services/api";
 import Navbar from "../components/Navbar";
+import Loading from "../components/Loading";
+import EmptyState from "../components/EmptyState";
+import ErrorState from "../components/ErrorState";
+import { getErrorMessage } from "../utils/errorMessage";
 
 function AuditLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(0);
@@ -16,7 +20,7 @@ function AuditLogs() {
 
   const fetchLogs = useCallback(async (currentPage = page) => {
     setLoading(true);
-    setError("");
+    setLoadError("");
 
     try {
       const response = await api.get("/audit-logs", {
@@ -31,9 +35,8 @@ function AuditLogs() {
       setPages(response.data.pages);
       setTotal(response.data.total);
     } catch (error) {
-      setError(
-        error.response?.data?.detail ||
-          "Unable to load audit logs."
+      setLoadError(
+        getErrorMessage(error, "Unable to load audit logs.")
       );
     } finally {
       setLoading(false);
@@ -60,17 +63,6 @@ function AuditLogs() {
     }
   };
 
-  if (loading) {
-    return (
-      <div>
-        <Navbar />
-        <main className="page-container">
-          <p>Loading audit logs...</p>
-        </main>
-      </div>
-    );
-  }
-
   return (
     <div>
       <Navbar />
@@ -78,10 +70,15 @@ function AuditLogs() {
       <main className="page-container">
         <h1>Audit Logs</h1>
 
-        {error && <div className="error">{error}</div>}
-
-        {logs.length === 0 ? (
-          <p>No audit logs found.</p>
+        {loading ? (
+          <Loading message="Loading audit logs..." />
+        ) : loadError ? (
+          <ErrorState
+            message={loadError}
+            onRetry={() => fetchLogs(page)}
+          />
+        ) : logs.length === 0 ? (
+          <EmptyState message="No audit logs yet." />
         ) : (
           <>
             <table>

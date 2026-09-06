@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 
 import { useAuth } from "../hooks/useAuth";
+import Loading from "./Loading";
 
 function ProtectedRoute({ children, requiredRole }) {
   const { user, loading } = useAuth();
@@ -8,7 +9,7 @@ function ProtectedRoute({ children, requiredRole }) {
   if (loading) {
     return (
       <main className="page-container">
-        <p>Checking your session...</p>
+        <Loading message="Checking your session..." />
       </main>
     );
   }

@@ -2,13 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 
 import api from "../services/api";
 import Navbar from "../components/Navbar";
+import Loading from "../components/Loading";
+import EmptyState from "../components/EmptyState";
+import ErrorState from "../components/ErrorState";
+import { getErrorMessage } from "../utils/errorMessage";
 
 const LIMIT = 10;
 
 function AdminAttendance() {
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -19,7 +23,7 @@ function AdminAttendance() {
 
   const fetchAttendance = useCallback(async (requestedPage = page) => {
     setLoading(true);
-    setError("");
+    setLoadError("");
     try {
       const response = await api.get("/attendance", {
         params: {
@@ -35,9 +39,8 @@ function AdminAttendance() {
       setPages(response.data.pages);
       setTotal(response.data.total);
     } catch (requestError) {
-      setError(
-        requestError.response?.data?.detail ||
-          "Unable to load attendance records."
+      setLoadError(
+        getErrorMessage(requestError, "Unable to load attendance records.")
       );
     } finally {
       setLoading(false);
@@ -70,7 +73,6 @@ function AdminAttendance() {
       <Navbar />
       <main className="page-container">
         <h1>Attendance</h1>
-        {error && <div className="error">{error}</div>}
         <div>
           <input
             type="search"
@@ -91,8 +93,21 @@ function AdminAttendance() {
           <button type="button" onClick={clearFilters}>Clear Filters</button>
         </div>
 
-        {loading ? <p>Loading attendance...</p> : attendance.length === 0 ? (
-          <p>No attendance records found.</p>
+        {loading ? (
+          <Loading message="Loading attendance records..." />
+        ) : loadError ? (
+          <ErrorState
+            message={loadError}
+            onRetry={() => fetchAttendance()}
+          />
+        ) : attendance.length === 0 ? (
+          <EmptyState
+            message={
+              search || startDate || endDate
+                ? "No attendance records match your search or filters."
+                : "No attendance records found for the selected period."
+            }
+          />
         ) : (
           <>
             <p>Showing {attendance.length} of {total} attendance records</p>

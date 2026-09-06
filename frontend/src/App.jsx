@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { useAuth } from "./hooks/useAuth";
+import Loading from "./components/Loading";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminDashboard from "./pages/AdminDashboard";
 import Dashboard from "./pages/Dashboard";
@@ -18,7 +19,7 @@ function HomeRedirect() {
   if (loading) {
     return (
       <main className="page-container">
-        <p>Loading...</p>
+        <Loading message="Checking your session..." />
       </main>
     );
   }

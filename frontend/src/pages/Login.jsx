@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
 import api from "../services/api";
+import Loading from "../components/Loading";
+import { getErrorMessage } from "../utils/errorMessage";
 
 function Login() {
     const navigate = useNavigate();
@@ -12,6 +14,7 @@ function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         if (!loading && user) {
@@ -25,14 +28,20 @@ function Login() {
     if (loading) {
         return (
             <main className="page-container">
-                <p>Checking your session...</p>
+                <Loading message="Checking your session..." />
             </main>
         );
     }
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+
+        if (submitting) {
+            return;
+        }
+
         setError("");
+        setSubmitting(true);
 
         try {
             const formData = new URLSearchParams();
@@ -59,8 +68,10 @@ function Login() {
 
         } catch (error) {
             setError(
-                error.response?.data?.detail || "Login failed. Please try again."
+                getErrorMessage(error, "Login failed. Please try again.")
             );
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -94,7 +105,9 @@ function Login() {
 
                     {error && <div className="error">{error}</div>}
 
-                    <button type="submit">Login</button>
+                    <button type="submit" disabled={submitting}>
+                        {submitting ? "Logging in..." : "Login"}
+                    </button>
                 </form>
             </main>
         </div>

@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 
 import api from "../services/api";
 import Navbar from "../components/Navbar";
+import Loading from "../components/Loading";
+import EmptyState from "../components/EmptyState";
+import ErrorState from "../components/ErrorState";
+import { getErrorMessage } from "../utils/errorMessage";
 
 function Leaves() {
   const [leaves, setLeaves] = useState([]);
@@ -13,10 +17,12 @@ function Leaves() {
   const [reason, setReason] = useState("");
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [cancellingId, setCancellingId] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [reloadToken, setReloadToken] = useState(0);
 
   const fetchLeaves = async () => {
     const [leavesResponse, balancesResponse] = await Promise.all([
@@ -30,12 +36,14 @@ function Leaves() {
 
   useEffect(() => {
     const loadData = async () => {
+      setLoading(true);
+      setLoadError("");
+
       try {
         await fetchLeaves();
       } catch (error) {
-        setError(
-          error.response?.data?.detail ||
-            "Unable to load leave information."
+        setLoadError(
+          getErrorMessage(error, "Unable to load leave information.")
         );
       } finally {
         setLoading(false);
@@ -43,7 +51,11 @@ function Leaves() {
     };
 
     loadData();
-  }, []);
+  }, [reloadToken]);
+
+  const handleRetry = () => {
+    setReloadToken((token) => token + 1);
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -69,8 +81,7 @@ function Leaves() {
       await fetchLeaves();
     } catch (error) {
       setError(
-        error.response?.data?.detail ||
-          "Unable to submit leave request."
+        getErrorMessage(error, "Unable to submit leave request.")
       );
     } finally {
       setSubmitting(false);
@@ -90,17 +101,12 @@ function Leaves() {
       await fetchLeaves();
     } catch (error) {
       setError(
-        error.response?.data?.detail ||
-          "Unable to cancel leave request."
+        getErrorMessage(error, "Unable to cancel leave request.")
       );
     } finally {
       setCancellingId(null);
     }
   };
-
-  if (loading) {
-    return <p>Loading leave information...</p>;
-  }
 
   return (
     <div>
@@ -112,148 +118,159 @@ function Leaves() {
         {error && <div className="error">{error}</div>}
         {message && <div className="success">{message}</div>}
 
-        <section>
-          <h2>Leave Balances</h2>
+        {loading ? (
+          <Loading message="Loading leave information..." />
+        ) : loadError ? (
+          <ErrorState
+            message={loadError}
+            onRetry={handleRetry}
+          />
+        ) : (
+          <>
+            <section>
+              <h2>Leave Balances</h2>
 
-          {balances.length > 0 ? (
-            <ul>
-              {balances.map((balance) => (
-                <li key={balance.leave_type}>
-                  <strong>{balance.leave_type}</strong>
-                  {" — "}
-                  Total: {balance.total_days}
-                  {" | "}
-                  Used: {balance.used_days}
-                  {" | "}
-                  Remaining: {balance.remaining_days}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>No leave balances available.</p>
-          )}
-        </section>
+              {balances.length > 0 ? (
+                <ul>
+                  {balances.map((balance) => (
+                    <li key={balance.leave_type}>
+                      <strong>{balance.leave_type}</strong>
+                      {" — "}
+                      Total: {balance.total_days}
+                      {" | "}
+                      Used: {balance.used_days}
+                      {" | "}
+                      Remaining: {balance.remaining_days}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState message="No leave balances available yet." />
+              )}
+            </section>
 
-        <section>
-          <h2>Request Leave</h2>
+            <section>
+              <h2>Request Leave</h2>
 
-          <form onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="leave-type">
-                Leave Type
-              </label>
+              <form onSubmit={handleSubmit}>
+                <div>
+                  <label htmlFor="leave-type">
+                    Leave Type
+                  </label>
 
-              <select
-                id="leave-type"
-                value={leaveType}
-                onChange={(event) =>
-                  setLeaveType(event.target.value)
-                }
-              >
-                <option value="vacation">Vacation</option>
-                <option value="sick">Sick</option>
-                <option value="emergency">Emergency</option>
-              </select>
-            </div>
+                  <select
+                    id="leave-type"
+                    value={leaveType}
+                    onChange={(event) =>
+                      setLeaveType(event.target.value)
+                    }
+                  >
+                    <option value="vacation">Vacation</option>
+                    <option value="sick">Sick</option>
+                    <option value="emergency">Emergency</option>
+                  </select>
+                </div>
 
-            <div>
-              <label htmlFor="start-date">
-                Start Date
-              </label>
+                <div>
+                  <label htmlFor="start-date">
+                    Start Date
+                  </label>
 
-              <input
-                id="start-date"
-                type="date"
-                value={startDate}
-                onChange={(event) =>
-                  setStartDate(event.target.value)
-                }
-                required
-              />
-            </div>
+                  <input
+                    id="start-date"
+                    type="date"
+                    value={startDate}
+                    onChange={(event) =>
+                      setStartDate(event.target.value)
+                    }
+                    required
+                  />
+                </div>
 
-            <div>
-              <label htmlFor="end-date">
-                End Date
-              </label>
+                <div>
+                  <label htmlFor="end-date">
+                    End Date
+                  </label>
 
-              <input
-                id="end-date"
-                type="date"
-                value={endDate}
-                onChange={(event) =>
-                  setEndDate(event.target.value)
-                }
-                required
-              />
-            </div>
+                  <input
+                    id="end-date"
+                    type="date"
+                    value={endDate}
+                    onChange={(event) =>
+                      setEndDate(event.target.value)
+                    }
+                    required
+                  />
+                </div>
 
-            <div>
-              <label htmlFor="reason">
-                Reason
-              </label>
+                <div>
+                  <label htmlFor="reason">
+                    Reason
+                  </label>
 
-              <textarea
-                id="reason"
-                value={reason}
-                onChange={(event) =>
-                  setReason(event.target.value)
-                }
-                maxLength={1000}
-              />
-            </div>
+                  <textarea
+                    id="reason"
+                    value={reason}
+                    onChange={(event) =>
+                      setReason(event.target.value)
+                    }
+                    maxLength={1000}
+                  />
+                </div>
 
-            <button type="submit" disabled={submitting}>
-              {submitting
-                ? "Submitting..."
-                : "Submit Leave Request"}
-            </button>
-          </form>
-        </section>
+                <button type="submit" disabled={submitting}>
+                  {submitting
+                    ? "Submitting..."
+                    : "Submit Leave Request"}
+                </button>
+              </form>
+            </section>
 
-        <section>
-          <h2>My Leave Requests</h2>
+            <section>
+              <h2>My Leave Requests</h2>
 
-          {leaves.length > 0 ? (
-            <ul>
-              {leaves.map((leave) => (
-                <li key={leave.id}>
-                  <div>
-                    <strong>{leave.leave_type}</strong>
-                  </div>
+              {leaves.length > 0 ? (
+                <ul>
+                  {leaves.map((leave) => (
+                    <li key={leave.id}>
+                      <div>
+                        <strong>{leave.leave_type}</strong>
+                      </div>
 
-                  <div>
-                    {leave.start_date} → {leave.end_date}
-                  </div>
+                      <div>
+                        {leave.start_date} → {leave.end_date}
+                      </div>
 
-                  <div>
-                    Status: {leave.status}
-                  </div>
+                      <div>
+                        Status: {leave.status}
+                      </div>
 
-                  {leave.reason && (
-                    <div>
-                      Reason: {leave.reason}
-                    </div>
-                  )}
+                      {leave.reason && (
+                        <div>
+                          Reason: {leave.reason}
+                        </div>
+                      )}
 
-                  {(leave.status === "pending" ||
-                    leave.status === "approved") && (
-                    <button
-                      onClick={() => handleCancel(leave.id)}
-                      disabled={cancellingId !== null}
-                    >
-                      {cancellingId === leave.id
-                        ? "Cancelling..."
-                        : "Cancel"}
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>No leave requests found.</p>
-          )}
-        </section>
+                      {(leave.status === "pending" ||
+                        leave.status === "approved") && (
+                        <button
+                          onClick={() => handleCancel(leave.id)}
+                          disabled={cancellingId !== null}
+                        >
+                          {cancellingId === leave.id
+                            ? "Cancelling..."
+                            : "Cancel"}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState message="No leave requests found yet." />
+              )}
+            </section>
+          </>
+        )}
       </main>
     </div>
   );

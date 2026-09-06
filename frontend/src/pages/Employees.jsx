@@ -2,10 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 
 import api from "../services/api";
 import Navbar from "../components/Navbar";
+import Loading from "../components/Loading";
+import EmptyState from "../components/EmptyState";
+import ErrorState from "../components/ErrorState";
+import { getErrorMessage } from "../utils/errorMessage";
 
 function Employees() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -62,7 +67,7 @@ function Employees() {
   ) => {
     try {
       setLoading(true);
-      setError("");
+      setLoadError("");
 
       const params = {
         page: pageNumber,
@@ -90,9 +95,8 @@ function Employees() {
       setTotalEmployees(response.data.total);
       setPage(response.data.page);
     } catch (error) {
-      setError(
-        error.response?.data?.detail ||
-          "Unable to load employees."
+      setLoadError(
+        getErrorMessage(error, "Unable to load employees.")
       );
     } finally {
       setLoading(false);
@@ -178,8 +182,7 @@ function Employees() {
       await fetchEmployees();
     } catch (error) {
       setError(
-        error.response?.data?.detail ||
-          "Unable to create employee."
+        getErrorMessage(error, "Unable to create employee.")
       );
     } finally {
       setSubmitting(false);
@@ -251,8 +254,7 @@ function Employees() {
       await fetchEmployees();
     } catch (error) {
       setError(
-        error.response?.data?.detail ||
-          "Unable to update employee."
+        getErrorMessage(error, "Unable to update employee.")
       );
     }
   };
@@ -277,8 +279,7 @@ function Employees() {
       await fetchEmployees();
     } catch (error) {
       setError(
-        error.response?.data?.detail ||
-          "Unable to deactivate employee."
+        getErrorMessage(error, "Unable to deactivate employee.")
       );
     }
   };
@@ -332,8 +333,7 @@ function Employees() {
       await fetchEmployees();
     } catch (error) {
       setError(
-        error.response?.data?.detail ||
-          "Unable to create employee account."
+        getErrorMessage(error, "Unable to create employee account.")
       );
     } finally {
       setAccountSubmitting(false);
@@ -356,8 +356,7 @@ function Employees() {
       setBalances(response.data);
     } catch (error) {
       setError(
-        error.response?.data?.detail ||
-          "Unable to load leave balances."
+        getErrorMessage(error, "Unable to load leave balances.")
       );
       setBalanceEmployee(null);
     } finally {
@@ -409,8 +408,7 @@ function Employees() {
       );
     } catch (error) {
       setError(
-        error.response?.data?.detail ||
-          "Unable to update leave balance."
+        getErrorMessage(error, "Unable to update leave balance.")
       );
     } finally {
       setBalanceUpdating(null);
@@ -424,9 +422,9 @@ function Employees() {
     );
   };
 
-  if (loading) {
-    return <p>Loading employees...</p>;
-  }
+  const hasActiveFilters = Boolean(
+    search.trim() || statusFilter.trim() || departmentFilter.trim()
+  );
 
   return (
     <div>
@@ -733,7 +731,9 @@ function Employees() {
             </h2>
 
             {balanceLoading ? (
-              <p>Loading leave balances...</p>
+              <Loading message="Loading leave balances..." />
+            ) : balances.length === 0 ? (
+              <EmptyState message="No leave balances set up for this employee yet." />
             ) : (
               <>
                 {balances.map((balance) => (
@@ -795,17 +795,17 @@ function Employees() {
                     </button>
                   </div>
                 ))}
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setBalanceEmployee(null)
-                  }
-                >
-                  Close
-                </button>
               </>
             )}
+
+            <button
+              type="button"
+              onClick={() =>
+                setBalanceEmployee(null)
+              }
+            >
+              Close
+            </button>
           </section>
         )}
 
@@ -868,8 +868,21 @@ function Employees() {
             Showing {employees.length} of {totalEmployees} employees
           </p>
 
-          {employees.length === 0 ? (
-            <p>No employees found.</p>
+          {loading ? (
+            <Loading message="Loading employees..." />
+          ) : loadError ? (
+            <ErrorState
+              message={loadError}
+              onRetry={() => fetchEmployees(page)}
+            />
+          ) : employees.length === 0 ? (
+            <EmptyState
+              message={
+                hasActiveFilters
+                  ? "No employees match your search or filters."
+                  : "No employees have been added yet."
+              }
+            />
           ) : (
             <table>
               <thead>

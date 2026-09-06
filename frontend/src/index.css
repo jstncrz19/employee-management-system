@@ -175,6 +175,39 @@ tr:last-child td {
     color: #166534;
 }
 
+.status-state {
+    margin: 16px 0;
+    padding: 24px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    display: grid;
+    gap: 14px;
+}
+
+.status-state p {
+    margin: 0;
+    color: #4b5563;
+}
+
+.status-state-error {
+    background: #fee2e2;
+    border-color: #fecaca;
+}
+
+.status-state-error p {
+    color: #991b1b;
+}
+
+.status-state-empty p {
+    color: #6b7280;
+}
+
+.status-state-hint {
+    font-size: 14px;
+    color: #9ca3af;
+}
+
 .dashboard-cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

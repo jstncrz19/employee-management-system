@@ -1,29 +1,44 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import api from "../services/api";
 import Navbar from "../components/Navbar";
+import Loading from "../components/Loading";
+import ErrorState from "../components/ErrorState";
+import { getErrorMessage } from "../utils/errorMessage";
 
 function AdminDashboard() {
   const [summary, setSummary] = useState(null);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [reloadToken, setReloadToken] = useState(0);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const response = await api.get("/dashboard/summary");
-        setSummary(response.data);
-      } catch (requestError) {
-        setError(
-          requestError.response?.data?.detail ||
-            "Unable to load dashboard."
-        );
-      }
-    };
+  const fetchDashboardData = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
 
-    fetchDashboardData();
+    try {
+      const response = await api.get("/dashboard/summary");
+      setSummary(response.data);
+    } catch (requestError) {
+      setLoadError(
+        getErrorMessage(requestError, "Unable to load the dashboard.")
+      );
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  if (!summary && !error) return <p>Loading dashboard...</p>;
+  useEffect(() => {
+    const requestTimer = setTimeout(() => {
+      fetchDashboardData();
+    }, 0);
+
+    return () => clearTimeout(requestTimer);
+  }, [fetchDashboardData, reloadToken]);
+
+  const handleRetry = () => {
+    setReloadToken((token) => token + 1);
+  };
 
   const cards = summary
     ? [
@@ -44,8 +59,15 @@ function AdminDashboard() {
       <Navbar />
       <main className="page-container">
         <h1>Admin Dashboard</h1>
-        {error && <div className="error">{error}</div>}
-        {summary && (
+
+        {loading ? (
+          <Loading message="Loading dashboard summary..." />
+        ) : loadError ? (
+          <ErrorState
+            message={loadError}
+            onRetry={handleRetry}
+          />
+        ) : summary ? (
           <section>
             <h2>Company Overview</h2>
             <div className="dashboard-cards">
@@ -57,7 +79,7 @@ function AdminDashboard() {
               ))}
             </div>
           </section>
-        )}
+        ) : null}
       </main>
     </div>
   );

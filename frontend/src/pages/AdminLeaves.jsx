@@ -2,12 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 
 import api from "../services/api";
 import Navbar from "../components/Navbar";
+import Loading from "../components/Loading";
+import EmptyState from "../components/EmptyState";
+import ErrorState from "../components/ErrorState";
+import { getErrorMessage } from "../utils/errorMessage";
 
 const LIMIT = 10;
 
 function AdminLeaves() {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -22,7 +27,7 @@ function AdminLeaves() {
 
   const fetchLeaves = useCallback(async (requestedPage = page) => {
     setLoading(true);
-    setError("");
+    setLoadError("");
     try {
       const response = await api.get("/leaves", {
         params: {
@@ -39,9 +44,8 @@ function AdminLeaves() {
       setPages(response.data.pages);
       setTotal(response.data.total);
     } catch (requestError) {
-      setError(
-        requestError.response?.data?.detail ||
-          "Unable to load leave requests."
+      setLoadError(
+        getErrorMessage(requestError, "Unable to load leave requests.")
       );
     } finally {
       setLoading(false);
@@ -81,13 +85,16 @@ function AdminLeaves() {
       await fetchLeaves();
     } catch (requestError) {
       setError(
-        requestError.response?.data?.detail ||
-          "Unable to update leave request."
+        getErrorMessage(requestError, "Unable to update leave request.")
       );
     } finally {
       setActionPending(null);
     }
   };
+
+  const hasActiveFilters = Boolean(
+    search.trim() || status || startDate || endDate
+  );
 
   return (
     <div>
@@ -117,8 +124,21 @@ function AdminLeaves() {
           <button type="button" onClick={clearFilters}>Clear Filters</button>
         </div>
 
-        {loading ? <p>Loading leave requests...</p> : leaves.length === 0 ? (
-          <p>No leave requests found.</p>
+        {loading ? (
+          <Loading message="Loading leave requests..." />
+        ) : loadError ? (
+          <ErrorState
+            message={loadError}
+            onRetry={() => fetchLeaves()}
+          />
+        ) : leaves.length === 0 ? (
+          <EmptyState
+            message={
+              hasActiveFilters
+                ? "No leave requests match your search or filters."
+                : "No leave requests have been submitted yet."
+            }
+          />
         ) : (
           <>
             <p>Showing {leaves.length} of {total} leave requests</p>

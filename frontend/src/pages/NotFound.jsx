@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
 import { useAuth } from "../hooks/useAuth";
+import Loading from "../components/Loading";
 
 function NotFound() {
   const { user, loading } = useAuth();
@@ -20,7 +21,7 @@ function NotFound() {
         </p>
 
         {loading ? (
-          <p>Checking your session...</p>
+          <Loading message="Checking your session..." />
         ) : (
           <Link
             className="link-button"
