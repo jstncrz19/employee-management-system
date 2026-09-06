@@ -733,3 +733,22 @@ def test_limit_above_maximum(client, db_session):
     )
 
     assert response.status_code == 422
+
+
+def test_start_date_after_end_date(client, db_session):
+    admin = create_admin(db_session)
+
+    start_date = now().date()
+    end_date = start_date - timedelta(days=1)
+
+    response = client.get(
+        "/audit-logs"
+        f"?start_date={start_date.isoformat()}"
+        f"&end_date={end_date.isoformat()}",
+        headers={
+            "Authorization": f"Bearer {token(admin)}"
+        }
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "End date cannot be before start date"

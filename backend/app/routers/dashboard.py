@@ -51,7 +51,7 @@ def get_dashboard_summary(
     ) or 0
 
     present_today = db.scalar(
-        select(func.count())
+        select(func.count(func.distinct(Employee.id)))
         .select_from(Attendance)
         .join(
             Employee,
@@ -59,12 +59,13 @@ def get_dashboard_summary(
         )
         .where(
             (Attendance.date == today)
+            & (Attendance.status == "present")
             & (Employee.status == "active")
         )
     ) or 0
 
     on_leave_today = db.scalar(
-        select(func.count())
+        select(func.count(func.distinct(Employee.id)))
         .select_from(Leave)
         .join(
             Employee,
@@ -79,10 +80,15 @@ def get_dashboard_summary(
     ) or 0
 
     pending_leave_requests = db.scalar(
-        select(func.count())
+        select(func.count(func.distinct(Employee.id)))
         .select_from(Leave)
+        .join(
+            Employee,
+            Leave.employee_id == Employee.id
+        )
         .where(
-            Leave.status == LeaveStatus.PENDING
+            (Leave.status == LeaveStatus.PENDING)
+            & (Employee.status == "active")
         )
     ) or 0
 

@@ -1,12 +1,24 @@
 import { useEffect, useState } from "react";
 
-import api from "../services/api";
+import api, { setUnauthorizedHandler } from "../services/api";
 import { getToken, logout } from "../services/auth";
 import AuthContext from "./authContext";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+      setUser(null);
+      window.location.href = "/login";
+    };
+
+    setUnauthorizedHandler(handleUnauthorized);
+
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   useEffect(() => {
     const loadUser = async () => {

@@ -14,6 +14,7 @@ function Leaves() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -79,6 +80,7 @@ function Leaves() {
   const handleCancel = async (leaveId) => {
     setError("");
     setMessage("");
+    setCancellingId(leaveId);
 
     try {
       await api.patch(`/leaves/${leaveId}/cancel`);
@@ -91,6 +93,8 @@ function Leaves() {
         error.response?.data?.detail ||
           "Unable to cancel leave request."
       );
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -236,8 +240,11 @@ function Leaves() {
                     leave.status === "approved") && (
                     <button
                       onClick={() => handleCancel(leave.id)}
+                      disabled={cancellingId !== null}
                     >
-                      Cancel
+                      {cancellingId === leave.id
+                        ? "Cancelling..."
+                        : "Cancel"}
                     </button>
                   )}
                 </li>

@@ -2,7 +2,7 @@ import math
 
 from datetime import date, datetime, time
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
@@ -45,7 +45,13 @@ def get_audit_logs(
     current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
-    
+
+    if start_date and end_date and end_date < start_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="End date cannot be before start date"
+        )
+
     query = (
         select(
             AuditLog,

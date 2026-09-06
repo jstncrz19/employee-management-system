@@ -18,6 +18,7 @@ function AdminLeaves() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(0);
   const [total, setTotal] = useState(0);
+  const [actionPending, setActionPending] = useState(null);
 
   const fetchLeaves = useCallback(async (requestedPage = page) => {
     setLoading(true);
@@ -71,6 +72,7 @@ function AdminLeaves() {
   const handleAction = async (leaveId, action) => {
     setError("");
     setMessage("");
+    setActionPending({ leaveId, action });
     try {
       await api.patch(`/leaves/${leaveId}/${action}`);
       setMessage(
@@ -82,6 +84,8 @@ function AdminLeaves() {
         requestError.response?.data?.detail ||
           "Unable to update leave request."
       );
+    } finally {
+      setActionPending(null);
     }
   };
 
@@ -126,7 +130,7 @@ function AdminLeaves() {
                   <td>{leave.employee_number || "—"}</td><td>{leave.leave_type}</td>
                   <td>{leave.start_date}</td><td>{leave.end_date}</td>
                   <td>{leave.reason || "—"}</td><td>{leave.status}</td>
-                  <td>{leave.status === "pending" && <><button onClick={() => handleAction(leave.id, "approve")}>Approve</button><button onClick={() => handleAction(leave.id, "reject")}>Reject</button></>}</td>
+                  <td>{leave.status === "pending" && <><button disabled={actionPending !== null} onClick={() => handleAction(leave.id, "approve")}>{actionPending?.leaveId === leave.id && actionPending.action === "approve" ? "Approving..." : "Approve"}</button><button disabled={actionPending !== null} onClick={() => handleAction(leave.id, "reject")}>{actionPending?.leaveId === leave.id && actionPending.action === "reject" ? "Rejecting..." : "Reject"}</button></>}</td>
                 </tr>
               ))}</tbody>
             </table>

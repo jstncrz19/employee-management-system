@@ -1,12 +1,30 @@
 from datetime import date
 
-def test_register_user(client):
+from sqlalchemy import select
+
+
+def register_payload(**overrides):
+    payload = {
+        "email": "test@example.com",
+        "password": "testpassword123",
+        "employee_number": 70001,
+        "first_name": "Test",
+        "last_name": "User",
+        "department": "IT",
+        "position": "Developer",
+        "date_hired": "2026-08-24"
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_register_user(client, db_session):
+    from app.models.employee import Employee
+    from app.models.leave_balance import LeaveBalance
+
     response = client.post(
         "/auth/register",
-        json={
-            "email": "test@example.com",
-            "password": "testpassword123"
-        }
+        json=register_payload()
     )
 
     assert response.status_code == 201
@@ -18,26 +36,98 @@ def test_register_user(client):
     assert "id" in data
     assert "password_hash" not in data
 
-def test_register_duplicate_email(client):
-    user_data = {
-        "email": "duplicate@example.com",
-        "password": "testpassword123"
-    }
+    employee = db_session.scalar(
+        select(Employee).where(Employee.email == "test@example.com")
+    )
 
+    assert employee is not None
+    assert employee.status == "active"
+    assert employee.employee_number == 70001
+
+    balances = db_session.scalars(
+        select(LeaveBalance).where(
+            LeaveBalance.employee_id == employee.id
+        )
+    ).all()
+
+    assert len(balances) == 4
+
+def test_register_duplicate_email(client):
     first_response = client.post(
         "/auth/register",
-        json=user_data
+        json=register_payload(email="duplicate@example.com")
     )
 
     assert first_response.status_code == 201
 
     second_response = client.post(
         "/auth/register",
-        json=user_data
+        json=register_payload(email="duplicate@example.com")
     )
 
     assert second_response.status_code == 409
     assert second_response.json()["detail"] == "Email already registered"
+
+def test_register_duplicate_employee_number(client):
+    first_response = client.post(
+        "/auth/register",
+        json=register_payload(email="num1@example.com", employee_number=71001)
+    )
+
+    assert first_response.status_code == 201
+
+    second_response = client.post(
+        "/auth/register",
+        json=register_payload(email="num2@example.com", employee_number=71001)
+    )
+
+    assert second_response.status_code == 409
+    assert second_response.json()["detail"] == (
+        "Employee number or email already exists"
+    )
+
+def test_register_requires_employee_profile_fields(client):
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": "incomplete@example.com",
+            "password": "testpassword123"
+        }
+    )
+
+    assert response.status_code == 422
+
+def test_registered_user_can_login_immediately(client):
+    response = client.post(
+        "/auth/register",
+        json=register_payload(
+            email="usable@example.com",
+            employee_number=71002
+        )
+    )
+
+    assert response.status_code == 201
+
+    login_response = client.post(
+        "/auth/login",
+        data={
+            "username": "usable@example.com",
+            "password": "testpassword123"
+        }
+    )
+
+    assert login_response.status_code == 200
+    assert login_response.json()["access_token"]
+
+    me_response = client.get(
+        "/employees/me",
+        headers={
+            "Authorization": f"Bearer {login_response.json()['access_token']}"
+        }
+    )
+
+    assert me_response.status_code == 200
+    assert me_response.json()["email"] == "usable@example.com"
 
 def test_login(client, db_session):
     from app.core.security import hash_password
@@ -88,10 +178,10 @@ def test_login(client, db_session):
 def test_login_invalid_password(client):
     client.post(
         "/auth/register",
-        json={
-            "email": "invalid-login@example.com",
-            "password": "correctpassword"
-        }
+        json=register_payload(
+            email="invalid-login@example.com",
+            employee_number=71003
+        )
     )
 
     response = client.post(

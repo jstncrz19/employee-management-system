@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.audit import create_audit_log
 from app.core.security import (
     create_access_token,
     hash_password,
@@ -10,6 +12,7 @@ from app.core.security import (
 )
 from app.models.user import User
 from app.models.employee import Employee
+from app.models.leave_balance import LeaveBalance
 from app.schemas.auth import Token, UserRegister, UserResponse
 from database import get_db
 
@@ -36,13 +39,97 @@ def register(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered"
         )
-    
-    new_user = User(
-        email=user_data.email,
-        password_hash=hash_password(user_data.password)
+
+    existing_employee = db.scalar(
+        select(Employee).where(
+            (Employee.employee_number == user_data.employee_number)
+            | (Employee.email == user_data.email)
+        )
     )
-    db.add(new_user)
-    db.commit()
+
+    if existing_employee:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Employee number or email already exists"
+        )
+
+    try:
+        # Register creates the user account, the employee profile, and the
+        # default leave balances atomically so self-registered accounts are
+        # immediately usable (login + self-service features).
+        new_user = User(
+            email=user_data.email,
+            password_hash=hash_password(user_data.password),
+            role="employee"
+        )
+        db.add(new_user)
+        db.flush()
+
+        new_employee = Employee(
+            user_id=new_user.id,
+            employee_number=user_data.employee_number,
+            first_name=user_data.first_name,
+            last_name=user_data.last_name,
+            email=user_data.email,
+            department=user_data.department,
+            position=user_data.position,
+            date_hired=user_data.date_hired,
+            status="active",
+        )
+
+        db.add(new_employee)
+        db.flush()
+
+        default_balances = [
+            LeaveBalance(
+                employee_id=new_employee.id,
+                leave_type="vacation",
+                total_days=15,
+                used_days=0,
+            ),
+            LeaveBalance(
+                employee_id=new_employee.id,
+                leave_type="sick",
+                total_days=15,
+                used_days=0,
+            ),
+            LeaveBalance(
+                employee_id=new_employee.id,
+                leave_type="emergency",
+                total_days=5,
+                used_days=0,
+            ),
+            LeaveBalance(
+                employee_id=new_employee.id,
+                leave_type="other",
+                total_days=0,
+                used_days=0,
+            ),
+        ]
+
+        db.add_all(default_balances)
+
+        create_audit_log(
+            db=db,
+            user_id=new_user.id,
+            action="register",
+            entity_type="employee",
+            entity_id=new_employee.id,
+            details=(
+                f"Self-registered employee {new_employee.first_name} "
+                f"{new_employee.last_name} "
+                f"(Employee #{new_employee.employee_number})"
+            )
+        )
+
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Employee number or email already exists"
+        )
+
     db.refresh(new_user)
 
     return new_user

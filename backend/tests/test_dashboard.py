@@ -447,6 +447,146 @@ def test_dashboard_summary_mixed_attendance_and_leave(
     assert data["absent_today"] == 1
 
 
+def test_dashboard_summary_ignores_non_present_attendance(
+    client,
+    db_session
+):
+    admin = create_admin(db_session)
+
+    user, employee = create_employee(
+        db_session,
+        email="non.present@dashboard.test",
+        employee_number=30024
+    )
+
+    db_session.add(
+        Attendance(
+            employee_id=employee.id,
+            date=now().date(),
+            time_in=None,
+            time_out=None,
+            status="absent"
+        )
+    )
+
+    db_session.commit()
+
+    response = client.get(
+        "/dashboard/summary",
+        headers={
+            "Authorization": f"Bearer {token(admin)}"
+        }
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["active_employees"] == 1
+    assert data["present_today"] == 0
+    assert data["absent_today"] == 1
+
+
+def test_dashboard_summary_counts_on_leave_employee_once(
+    client,
+    db_session
+):
+    admin = create_admin(db_session)
+
+    user, employee = create_employee(
+        db_session,
+        email="double.leave@dashboard.test",
+        employee_number=30025
+    )
+
+    today = now().date()
+
+    db_session.add_all([
+        Leave(
+            employee_id=employee.id,
+            leave_type=LeaveType.VACATION,
+            start_date=today,
+            end_date=today,
+            reason="Leave one",
+            status=LeaveStatus.APPROVED,
+            created_at=now(),
+            updated_at=now()
+        ),
+        Leave(
+            employee_id=employee.id,
+            leave_type=LeaveType.SICK,
+            start_date=today,
+            end_date=today,
+            reason="Leave two",
+            status=LeaveStatus.APPROVED,
+            created_at=now(),
+            updated_at=now()
+        )
+    ])
+
+    db_session.commit()
+
+    response = client.get(
+        "/dashboard/summary",
+        headers={
+            "Authorization": f"Bearer {token(admin)}"
+        }
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["active_employees"] == 1
+    assert data["on_leave_today"] == 1
+    assert data["absent_today"] == 0
+
+
+def test_dashboard_summary_ignores_inactive_employee_pending_leave(
+    client,
+    db_session
+):
+    admin = create_admin(db_session)
+
+    user, employee = create_employee(
+        db_session,
+        email="inactive.pending@dashboard.test",
+        employee_number=30026,
+        status="inactive"
+    )
+
+    today = now().date()
+
+    db_session.add(
+        Leave(
+            employee_id=employee.id,
+            leave_type=LeaveType.VACATION,
+            start_date=today,
+            end_date=today,
+            reason="Pending inactive leave",
+            status=LeaveStatus.PENDING,
+            created_at=now(),
+            updated_at=now()
+        )
+    )
+
+    db_session.commit()
+
+    response = client.get(
+        "/dashboard/summary",
+        headers={
+            "Authorization": f"Bearer {token(admin)}"
+        }
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["active_employees"] == 0
+    assert data["pending_leave_requests"] == 0
+
+
 def test_employee_cannot_access_dashboard_summary(
     client,
     db_session

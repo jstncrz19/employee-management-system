@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
 import api from "../services/api";
-import { logout } from "../services/auth";
+import { useAuth } from "../hooks/useAuth";
 
 function Dashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [error, setError] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -61,7 +65,7 @@ function Dashboard() {
 
   const handleLogout = () => {
     logout();
-    window.location.href = "/login";
+    navigate("/login");
   };
 
   if (error) {

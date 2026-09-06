@@ -2,6 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status as http_status
 from sqlalchemy import String, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.security import (
@@ -60,63 +61,71 @@ def create_employee(
             detail="Employee number or email already exists"
         )
     
-    new_employee = Employee(
-        employee_number=employee_data.employee_number,
-        first_name=employee_data.first_name,
-        last_name=employee_data.last_name,
-        email=employee_data.email,
-        department=employee_data.department,
-        position=employee_data.position,
-        date_hired=employee_data.date_hired,
-        status=employee_data.status,
-    )
-
-    db.add(new_employee)
-    db.flush()
-
-    default_balances = [
-        LeaveBalance(
-            employee_id=new_employee.id,
-            leave_type="vacation",
-            total_days=15,
-            used_days=0,
-        ),
-        LeaveBalance(
-            employee_id=new_employee.id,
-            leave_type="sick",
-            total_days=15,
-            used_days=0,
-        ),
-        LeaveBalance(
-            employee_id=new_employee.id,
-            leave_type="emergency",
-            total_days=5,
-            used_days=0,
-        ),
-        LeaveBalance(
-            employee_id=new_employee.id,
-            leave_type="other",
-            total_days=0,
-            used_days=0,
-        ),
-    ]
-
-    db.add_all(default_balances)
-
-    create_audit_log(
-        db=db,
-        user_id=current_user.id,
-        action="create",
-        entity_type="employee",
-        entity_id=new_employee.id,
-        details=(
-            f"Created employee {new_employee.first_name} "
-            f"{new_employee.last_name} "
-            f"(Employee #{new_employee.employee_number})"
+    try:
+        new_employee = Employee(
+            employee_number=employee_data.employee_number,
+            first_name=employee_data.first_name,
+            last_name=employee_data.last_name,
+            email=employee_data.email,
+            department=employee_data.department,
+            position=employee_data.position,
+            date_hired=employee_data.date_hired,
+            status=employee_data.status,
         )
-    )
 
-    db.commit()
+        db.add(new_employee)
+        db.flush()
+
+        default_balances = [
+            LeaveBalance(
+                employee_id=new_employee.id,
+                leave_type="vacation",
+                total_days=15,
+                used_days=0,
+            ),
+            LeaveBalance(
+                employee_id=new_employee.id,
+                leave_type="sick",
+                total_days=15,
+                used_days=0,
+            ),
+            LeaveBalance(
+                employee_id=new_employee.id,
+                leave_type="emergency",
+                total_days=5,
+                used_days=0,
+            ),
+            LeaveBalance(
+                employee_id=new_employee.id,
+                leave_type="other",
+                total_days=0,
+                used_days=0,
+            ),
+        ]
+
+        db.add_all(default_balances)
+
+        create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="create",
+            entity_type="employee",
+            entity_id=new_employee.id,
+            details=(
+                f"Created employee {new_employee.first_name} "
+                f"{new_employee.last_name} "
+                f"(Employee #{new_employee.employee_number})"
+            )
+        )
+
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail="Employee number or email already exists"
+        )
+
     db.refresh(new_employee)
 
     return(new_employee)
@@ -330,24 +339,32 @@ def update_my_employee(
         exclude_unset=True
     )
 
-    if "email" in update_data:
-        existing_employee = db.scalar(
-            select(Employee).where(
-                (Employee.email == update_data["email"])
-                & (Employee.id != current_employee.id)
+    try:
+        if "email" in update_data:
+            existing_employee = db.scalar(
+                select(Employee).where(
+                    (Employee.email == update_data["email"])
+                    & (Employee.id != current_employee.id)
+                )
             )
+
+            if existing_employee:
+                raise HTTPException(
+                    status_code=http_status.HTTP_409_CONFLICT,
+                    detail="Email already exists"
+                )
+
+        for field, value in update_data.items():
+            setattr(current_employee, field, value)
+
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail="Email already exists"
         )
 
-        if existing_employee:
-            raise HTTPException(
-                status_code=http_status.HTTP_409_CONFLICT,
-                detail="Email already exists"
-            )
-
-    for field, value in update_data.items():
-        setattr(current_employee, field, value)
-
-    db.commit()
     db.refresh(current_employee)
 
     return current_employee
@@ -424,29 +441,37 @@ def update_employee(
             detail="Employee number or email already exists"
         )
     
-    employee.employee_number = employee_data.employee_number
-    employee.first_name = employee_data.first_name
-    employee.last_name = employee_data.last_name
-    employee.email = employee_data.email
-    employee.department = employee_data.department
-    employee.position = employee_data.position
-    employee.date_hired = employee_data.date_hired
-    employee.status = employee_data.status
+    try:
+        employee.employee_number = employee_data.employee_number
+        employee.first_name = employee_data.first_name
+        employee.last_name = employee_data.last_name
+        employee.email = employee_data.email
+        employee.department = employee_data.department
+        employee.position = employee_data.position
+        employee.date_hired = employee_data.date_hired
+        employee.status = employee_data.status
 
-    create_audit_log(
-        db=db,
-        user_id=current_user.id,
-        action="update",
-        entity_type="employee",
-        entity_id=employee.id,
-        details=(
-            f"Updated employee {employee.first_name} "
-            f"{employee.last_name} "
-            f"(Employee #{employee.employee_number})"
+        create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="update",
+            entity_type="employee",
+            entity_id=employee.id,
+            details=(
+                f"Updated employee {employee.first_name} "
+                f"{employee.last_name} "
+                f"(Employee #{employee.employee_number})"
+            )
         )
-    )
 
-    db.commit()
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail="Employee number or email already exists"
+        )
+
     db.refresh(employee)
 
     return employee
@@ -476,38 +501,46 @@ def patch_employee(
         exclude_unset=True
     )
 
-    if "email" in update_data:
-        existing_employee = db.scalar(
-            select(Employee).where(
-                (Employee.email == update_data["email"])
-                & (Employee.id != employee_id)
+    try:
+        if "email" in update_data:
+            existing_employee = db.scalar(
+                select(Employee).where(
+                    (Employee.email == update_data["email"])
+                    & (Employee.id != employee_id)
+                )
+            )
+
+            if existing_employee:
+                raise HTTPException(
+                    status_code=http_status.HTTP_409_CONFLICT,
+                    detail="Email already exists"
+                )
+
+        for field, value in update_data.items():
+            setattr(employee, field, value)
+
+        create_audit_log(
+            db=db,
+            user_id=current_user.id,
+            action="update",
+            entity_type="employee",
+            entity_id=employee.id,
+            details=(
+                f"Updated employee {employee.first_name} "
+                f"{employee.last_name} "
+                f"(Employee #{employee.employee_number}): "
+                f"{', '.join(update_data.keys())}"
             )
         )
 
-        if existing_employee:
-            raise HTTPException(
-                status_code=http_status.HTTP_409_CONFLICT,
-                detail="Email already exists"
-            )
-
-    for field, value in update_data.items():
-        setattr(employee, field, value)
-    
-    create_audit_log(
-        db=db,
-        user_id=current_user.id,
-        action="update",
-        entity_type="employee",
-        entity_id=employee.id,
-        details=(
-            f"Updated employee {employee.first_name} "
-            f"{employee.last_name} "
-            f"(Employee #{employee.employee_number}): "
-            f"{', '.join(update_data.keys())}"
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail="Email already exists"
         )
-    )
 
-    db.commit()
     db.refresh(employee)
 
     return employee

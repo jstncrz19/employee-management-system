@@ -391,6 +391,91 @@ def test_patch_employee(client, db_session):
     assert data["last_name"] == "Employee"
     assert data["email"] == "patch.employee@test.com"
 
+
+def test_update_employee_put_duplicate_rejected(client, db_session):
+    admin = create_admin(db_session)
+
+    token = create_access_token(admin.id)
+
+    def make_employee(employee_number, email):
+        response = client.post(
+            "/employees",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "employee_number": employee_number,
+                "first_name": "Seed",
+                "last_name": "Employee",
+                "email": email,
+                "department": "IT",
+                "position": "Developer",
+                "date_hired": "2026-08-24",
+                "status": "active"
+            }
+        )
+        assert response.status_code == 201
+        return response.json()["id"]
+
+    first_id = make_employee(20001, "put.first@test.com")
+    second_id = make_employee(20002, "put.second@test.com")
+
+    response = client.put(
+        f"/employees/{second_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "employee_number": 20001,
+            "first_name": "Changed",
+            "last_name": "Employee",
+            "email": "put.changed@test.com",
+            "department": "IT",
+            "position": "Manager",
+            "date_hired": "2026-08-24",
+            "status": "active"
+        }
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Employee number or email already exists"
+    )
+
+
+def test_patch_employee_duplicate_email_rejected(client, db_session):
+    admin = create_admin(db_session)
+
+    token = create_access_token(admin.id)
+
+    def make_employee(employee_number, email):
+        response = client.post(
+            "/employees",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "employee_number": employee_number,
+                "first_name": "Seed",
+                "last_name": "Employee",
+                "email": email,
+                "department": "IT",
+                "position": "Developer",
+                "date_hired": "2026-08-24",
+                "status": "active"
+            }
+        )
+        assert response.status_code == 201
+        return response.json()["id"]
+
+    first_id = make_employee(20003, "patch.first@test.com")
+    second_id = make_employee(20004, "patch.second@test.com")
+
+    response = client.patch(
+        f"/employees/{second_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "email": "patch.first@test.com"
+        }
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Email already exists"
+
 def test_get_my_employee(client, db_session):
     employee_user = User(
         email="self.employee@test.com",
@@ -500,6 +585,73 @@ def test_update_my_employee(client, db_session):
     assert response.status_code == 200
     assert response.json()["first_name"] == "Updated"
     assert response.json()["last_name"] == "Self"
+
+def test_update_my_employee_duplicate_email_rejected(client, db_session):
+    from app.models.employee import Employee
+
+    admin = create_admin(db_session)
+    admin_token = create_access_token(admin.id)
+
+    employee_user = User(
+        email="selfdupe.user@test.com",
+        password_hash=hash_password("testpassword123"),
+        role="employee"
+    )
+
+    db_session.add(employee_user)
+    db_session.commit()
+    db_session.refresh(employee_user)
+
+    self_employee = client.post(
+        "/employees",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "employee_number": 20005,
+            "first_name": "Self",
+            "last_name": "Dupe",
+            "email": "selfdupe.employee@test.com",
+            "department": "IT",
+            "position": "Developer",
+            "date_hired": "2026-08-24",
+            "status": "active"
+        }
+    )
+
+    other_employee = client.post(
+        "/employees",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "employee_number": 20006,
+            "first_name": "Other",
+            "last_name": "Employee",
+            "email": "other.dupe@test.com",
+            "department": "IT",
+            "position": "Developer",
+            "date_hired": "2026-08-24",
+            "status": "active"
+        }
+    )
+
+    employee_record = db_session.get(
+        Employee,
+        self_employee.json()["id"]
+    )
+
+    employee_record.user_id = employee_user.id
+    db_session.commit()
+
+    token = create_access_token(employee_user.id)
+
+    response = client.patch(
+        "/employees/me",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "email": other_employee.json()["email"]
+        }
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Email already exists"
 
 def test_employee_cannot_access_other_employee(client, db_session):
     admin = create_admin(db_session)
