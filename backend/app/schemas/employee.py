@@ -43,7 +43,7 @@ class EmployeePatch(BaseModel):
 class EmployeeSelfUpdate(BaseModel):
     first_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     last_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
 
     model_config = ConfigDict(extra="forbid")
 

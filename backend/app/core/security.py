@@ -93,6 +93,16 @@ def get_current_employee(
     )
 
     if employee is None:
+        if current_user.role == "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Admin account has no linked employee profile; "
+                    "a linked employee profile is required to use "
+                    "self-service features"
+                )
+            )
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Employee profile not found"

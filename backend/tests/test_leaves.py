@@ -343,6 +343,72 @@ def test_get_my_leaves(client, db_session):
     assert data[0]["employee_id"] == employee.id
 
 
+def test_admin_with_employee_profile_can_get_my_leaves(client, db_session):
+    admin = create_admin(db_session)
+
+    employee = Employee(
+        user_id=admin.id,
+        employee_number=20009,
+        first_name="Admin",
+        last_name="Profile",
+        email="admin.profile@leave.test",
+        department="IT",
+        position="Manager",
+        date_hired=date(2026, 8, 1),
+        status="active"
+    )
+
+    db_session.add(employee)
+    db_session.commit()
+    db_session.refresh(employee)
+
+    leave = Leave(
+        employee_id=employee.id,
+        leave_type=LeaveType.VACATION,
+        start_date=now().date() + timedelta(days=10),
+        end_date=now().date() + timedelta(days=11),
+        reason="Admin leave",
+        status=LeaveStatus.PENDING,
+        created_at=now(),
+        updated_at=now()
+    )
+
+    db_session.add(leave)
+    db_session.commit()
+
+    token = admin_token(admin)
+
+    response = client.get(
+        "/leaves/me",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["employee_id"] == employee.id
+
+
+def test_admin_without_employee_profile_gets_clear_error(client, db_session):
+    admin = create_admin(db_session)
+
+    token = admin_token(admin)
+
+    response = client.get(
+        "/leaves/me",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "Admin account has no linked employee profile; "
+        "a linked employee profile is required to use "
+        "self-service features"
+    )
+
+
 def test_get_my_leave_balance(client, db_session):
     user, employee = create_employee(db_session)
 

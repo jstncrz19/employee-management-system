@@ -42,21 +42,21 @@ function AuditLogs() {
 
   useEffect(() => {
     const requestTimer = setTimeout(() => {
-      fetchLogs(1);
+      fetchLogs(page);
     }, 0);
 
     return () => clearTimeout(requestTimer);
-  }, [fetchLogs]);
+  }, [fetchLogs, page]);
 
   const handlePrevious = () => {
     if (page > 1) {
-      fetchLogs(page - 1);
+      setPage((current) => current - 1);
     }
   };
 
   const handleNext = () => {
     if (page < pages) {
-      fetchLogs(page + 1);
+      setPage((current) => current + 1);
     }
   };
 
