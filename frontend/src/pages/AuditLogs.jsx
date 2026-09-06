@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import api from "../services/api";
 import Navbar from "../components/Navbar";
@@ -14,7 +14,7 @@ function AuditLogs() {
 
   const limit = 10;
 
-  const fetchLogs = async (currentPage = page) => {
+  const fetchLogs = useCallback(async (currentPage = page) => {
     setLoading(true);
     setError("");
 
@@ -22,7 +22,7 @@ function AuditLogs() {
       const response = await api.get("/audit-logs", {
         params: {
           page: currentPage,
-          limit: limit,
+          limit,
         },
       });
 
@@ -38,11 +38,15 @@ function AuditLogs() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   useEffect(() => {
-    fetchLogs(1);
-  }, []);
+    const requestTimer = setTimeout(() => {
+      fetchLogs(1);
+    }, 0);
+
+    return () => clearTimeout(requestTimer);
+  }, [fetchLogs]);
 
   const handlePrevious = () => {
     if (page > 1) {

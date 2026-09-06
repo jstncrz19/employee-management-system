@@ -105,3 +105,39 @@ def get_current_employee(
         )
 
     return employee
+
+
+def get_current_employee_user(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Employee:
+    """Return an active employee for endpoints reserved for employee users.
+
+    Administrators may have an employee profile so they can use shared
+    self-service features such as "My Leaves".  They must not, however, gain
+    access to employee-only attendance and dashboard endpoints merely because
+    that profile exists.
+    """
+    if current_user.role != "employee":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Employee access required"
+        )
+
+    employee = db.scalar(
+        select(Employee).where(Employee.user_id == current_user.id)
+    )
+
+    if employee is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Employee profile not found"
+        )
+
+    if employee.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Employee account is inactive"
+        )
+
+    return employee

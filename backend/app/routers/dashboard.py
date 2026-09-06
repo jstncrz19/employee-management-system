@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.permissions import require_admin
-from app.core.security import get_current_employee
+from app.core.security import get_current_employee_user
 from app.core.time import now
 
 from app.models.attendance import Attendance
@@ -86,7 +86,7 @@ def get_dashboard_summary(
         )
     ) or 0
 
-    absent_today = active_employees - present_today - on_leave_today
+    absent_today = max(0, active_employees - present_today - on_leave_today)
 
     return {
         "total_employees": total_employees,
@@ -103,7 +103,7 @@ def get_dashboard_summary(
     response_model=EmployeeDashboardResponse
 )
 def get_employee_dashboard(
-    current_employee: Employee = Depends(get_current_employee),
+    current_employee: Employee = Depends(get_current_employee_user),
     db: Session = Depends(get_db)
 ):
     today = now().date()

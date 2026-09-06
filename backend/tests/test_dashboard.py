@@ -830,7 +830,7 @@ def test_employee_dashboard_only_returns_own_data(
     assert data["recent_attendance"] == []
 
 
-def test_admin_can_access_employee_dashboard(
+def test_admin_cannot_access_employee_dashboard(
     client,
     db_session
 ):
@@ -843,7 +843,8 @@ def test_admin_can_access_employee_dashboard(
         }
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Employee access required"
 
 
 def test_employee_dashboard_requires_employee_profile(

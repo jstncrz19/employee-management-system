@@ -1,16 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import func, select
+from sqlalchemy import String, func, select
 from sqlalchemy.orm import Session
 
 from datetime import date
 import math
 
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_employee
 from app.core.permissions import require_admin
 from app.core.audit import create_audit_log
 from app.core.time import now
 
 from app.models.employee import Employee
+from app.models.attendance import Attendance
 from app.models.leave import Leave, LeaveStatus, LeaveType
 from app.models.user import User
 from app.models.leave_balance import LeaveBalance
@@ -43,20 +44,16 @@ router = APIRouter(
 )
 def create_leave(
     leave_data: LeaveCreate,
-    current_user: User = Depends(get_current_user),
+    current_employee: Employee = Depends(get_current_employee),
     db: Session = Depends(get_db)
 ):
+    # Serialize leave submissions for one employee. This keeps the application
+    # overlap check reliable when two requests arrive at nearly the same time.
     employee = db.scalar(
-        select(Employee).where(
-            Employee.user_id == current_user.id
-        )
+        select(Employee)
+        .where(Employee.id == current_employee.id)
+        .with_for_update()
     )
-
-    if employee is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Employee profile not found"
-        )
 
     if leave_data.end_date < leave_data.start_date:
         raise HTTPException(
@@ -100,7 +97,7 @@ def create_leave(
 
     create_audit_log(
         db=db,
-        user_id=current_user.id,
+        user_id=employee.user_id,
         action="create",
         entity_type="leave",
         entity_id=new_leave.id,
@@ -131,6 +128,7 @@ def get_all_leaves(
     leave_type: Optional[LeaveType] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
+    search: Optional[str] = Query(default=None, max_length=255),
     sort_by: str = Query(default="id"),
     sort_order: str = Query(default="asc"),
     page: int = Query(default=1, ge=1),
@@ -161,7 +159,17 @@ def get_all_leaves(
             detail="sort_order must be 'asc' or 'desc'"
         )
 
-    query = select(Leave)
+    if start_date and end_date and end_date < start_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="End date cannot be before start date"
+        )
+
+    query = select(
+        Leave,
+        Employee.employee_number,
+        (Employee.first_name + " " + Employee.last_name).label("employee_name")
+    ).join(Employee, Leave.employee_id == Employee.id)
 
     if leave_status:
         query = query.where(
@@ -186,11 +194,19 @@ def get_all_leaves(
     if end_date:
         query = query.where(
             Leave.end_date <= end_date
+        )
+    if search and search.strip():
+        search_term = f"%{search.strip()}%"
+        query = query.where(
+            (Employee.employee_number.cast(String).ilike(search_term))
+            | Employee.first_name.ilike(search_term)
+            | Employee.last_name.ilike(search_term)
+            | Employee.email.ilike(search_term)
         )
     
     count_query = select(
     func.count()
-    ).select_from(Leave)
+    ).select_from(Leave).join(Employee, Leave.employee_id == Employee.id)
 
     if leave_status:
         count_query = count_query.where(
@@ -215,6 +231,14 @@ def get_all_leaves(
     if end_date:
         count_query = count_query.where(
             Leave.end_date <= end_date
+        )
+    if search and search.strip():
+        search_term = f"%{search.strip()}%"
+        count_query = count_query.where(
+            (Employee.employee_number.cast(String).ilike(search_term))
+            | Employee.first_name.ilike(search_term)
+            | Employee.last_name.ilike(search_term)
+            | Employee.email.ilike(search_term)
         )
 
     total = db.scalar(count_query) or 0
@@ -229,14 +253,31 @@ def get_all_leaves(
     offset = (page - 1) * limit
     pages = math.ceil(total / limit) if total > 0 else 0
 
-    leaves = db.scalars(
+    rows = db.execute(
         query
         .offset(offset)
         .limit(limit)
     ).all()
 
+    items = [
+        {
+            "id": leave.id,
+            "employee_id": leave.employee_id,
+            "employee_number": employee_number,
+            "employee_name": employee_name,
+            "leave_type": leave.leave_type,
+            "start_date": leave.start_date,
+            "end_date": leave.end_date,
+            "reason": leave.reason,
+            "status": leave.status,
+            "created_at": leave.created_at,
+            "updated_at": leave.updated_at,
+        }
+        for leave, employee_number, employee_name in rows
+    ]
+
     return {
-        "items": leaves,
+        "items": items,
         "total": total,
         "page": page,
         "limit": limit,
@@ -249,20 +290,10 @@ def get_all_leaves(
     response_model=list[LeaveResponse]
 )
 def get_my_leaves(
-    current_user: User = Depends(get_current_user),
+    current_employee: Employee = Depends(get_current_employee),
     db: Session = Depends(get_db)
 ):
-    employee = db.scalar(
-        select(Employee).where(
-            Employee.user_id == current_user.id
-        )
-    )
-
-    if employee is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Employee profile not found"
-        )
+    employee = current_employee
 
     leaves = db.scalars(
         select(Leave)
@@ -278,20 +309,10 @@ def get_my_leaves(
     response_model=list[LeaveBalanceResponse]
 )
 def get_my_leave_balance(
-    current_user: User = Depends(get_current_user),
+    current_employee: Employee = Depends(get_current_employee),
     db: Session = Depends(get_db)
 ):
-    employee = db.scalar(
-        select(Employee).where(
-            Employee.user_id == current_user.id
-        )
-    )
-
-    if employee is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Employee profile not found"
-        )
+    employee = current_employee
 
     balances = db.scalars(
         select(LeaveBalance)
@@ -384,10 +405,12 @@ def update_leave_balance(
         )
 
     balance = db.scalar(
-        select(LeaveBalance).where(
+        select(LeaveBalance)
+        .where(
             (LeaveBalance.employee_id == employee_id)
             & (LeaveBalance.leave_type == leave_type.value)
         )
+        .with_for_update()
     )
 
     if balance is None:
@@ -442,38 +465,24 @@ def update_leave_balance(
 )
 def cancel_leave(
     leave_id: int,
-    current_user: User = Depends(get_current_user),
+    current_employee: Employee = Depends(get_current_employee),
     db: Session = Depends(get_db)
 ):
-    employee = db.scalar(
-        select(Employee).where(
-            Employee.user_id == current_user.id
-        )
-    )
-
-    if employee is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Employee profile not found"
-        )
+    employee = current_employee
 
     leave = db.scalar(
-        select(Leave).where(
+        select(Leave)
+        .where(
             (Leave.id == leave_id)
             & (Leave.employee_id == employee.id)
         )
+        .with_for_update()
     )
 
     if leave is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Leave request not found"
-        )
-    
-    if employee.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only cancel your own leave requests"
         )
     
     if leave.status not in {
@@ -487,10 +496,12 @@ def cancel_leave(
 
     if leave.status == LeaveStatus.APPROVED:
         balance = db.scalar(
-            select(LeaveBalance).where(
+            select(LeaveBalance)
+            .where(
                 (LeaveBalance.employee_id == leave.employee_id)
                 & (LeaveBalance.leave_type == leave.leave_type)
             )
+            .with_for_update()
         )
         if balance is None:
             raise HTTPException(
@@ -513,7 +524,7 @@ def cancel_leave(
 
     create_audit_log(
         db=db,
-        user_id=current_user.id,
+        user_id=employee.user_id,
         action="cancel",
         entity_type="leave",
         entity_id=leave.id,
@@ -541,9 +552,9 @@ def approve_leave(
     db: Session = Depends(get_db)
 ):
     leave = db.scalar(
-        select(Leave).where(
-            Leave.id == leave_id
-        )
+        select(Leave)
+        .where(Leave.id == leave_id)
+        .with_for_update()
     )
 
     if leave is None:
@@ -570,11 +581,33 @@ def approve_leave(
             detail="Employee not found"
         )
 
+    if employee.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot approve leave for an inactive employee"
+        )
+
+    conflicting_attendance = db.scalar(
+        select(Attendance).where(
+            (Attendance.employee_id == leave.employee_id)
+            & (Attendance.date >= leave.start_date)
+            & (Attendance.date <= leave.end_date)
+        )
+    )
+
+    if conflicting_attendance:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot approve leave that overlaps an attendance record"
+        )
+
     balance = db.scalar(
-        select(LeaveBalance).where(
+        select(LeaveBalance)
+        .where(
             (LeaveBalance.employee_id == leave.employee_id)
             & (LeaveBalance.leave_type == leave.leave_type)
         )
+        .with_for_update()
     )
 
     if balance is None:
@@ -637,9 +670,9 @@ def reject_leave(
     db: Session = Depends(get_db)
 ):
     leave = db.scalar(
-        select(Leave).where(
-            Leave.id == leave_id
-        )
+        select(Leave)
+        .where(Leave.id == leave_id)
+        .with_for_update()
     )
 
     if leave is None:

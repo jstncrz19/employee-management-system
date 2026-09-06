@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
@@ -11,6 +11,14 @@ class LeaveBalance(Base):
             "employee_id",
             "leave_type",
             name="uq_leave_balance_employee_type"
+        ),
+        CheckConstraint(
+            "total_days >= 0",
+            name="ck_leave_balances_total_days_nonnegative"
+        ),
+        CheckConstraint(
+            "used_days >= 0 AND used_days <= total_days",
+            name="ck_leave_balances_used_days_valid"
         ),
     )
     id: Mapped[int] = mapped_column(

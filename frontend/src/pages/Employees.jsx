@@ -1,14 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import api from "../services/api";
 import Navbar from "../components/Navbar";
-
-const LEAVE_TYPES = [
-  "vacation",
-  "sick",
-  "emergency",
-  "other",
-];
 
 function Employees() {
   const [employees, setEmployees] = useState([]);
@@ -59,11 +52,11 @@ function Employees() {
   const [departmentFilter, setDepartmentFilter] = useState("");
 
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const limit = 10;
   const [totalPages, setTotalPages] = useState(0);
   const [totalEmployees, setTotalEmployees] = useState(0);
 
-  const fetchEmployees = async (
+  const fetchEmployees = useCallback(async (
     pageNumber = 1,
     searchOverride = search
   ) => {
@@ -104,11 +97,15 @@ function Employees() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [departmentFilter, limit, search, statusFilter]);
 
   useEffect(() => {
-    fetchEmployees(page);
-  }, [page]);
+    const requestTimer = setTimeout(() => {
+      fetchEmployees(page);
+    }, 0);
+
+    return () => clearTimeout(requestTimer);
+  }, [fetchEmployees, page]);
 
   const handleSearch = () => {
     const trimmedSearch = searchInput.trim();

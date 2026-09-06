@@ -5,6 +5,7 @@ from sqlalchemy import select
 from app.core.security import create_access_token, hash_password
 from app.core.time import now
 from app.models.audit_log import AuditLog
+from app.models.attendance import Attendance
 from app.models.employee import Employee
 from app.models.leave import Leave, LeaveStatus, LeaveType
 from app.models.leave_balance import LeaveBalance
@@ -156,6 +157,32 @@ def test_create_leave_without_employee_profile(client, db_session):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Employee profile not found"
+
+
+def test_inactive_employee_cannot_manage_own_leaves(client, db_session):
+    user, employee = create_employee(
+        db_session,
+        email="inactive@leave.test",
+        employee_number=20011
+    )
+    employee.status = "inactive"
+    db_session.commit()
+
+    headers = {"Authorization": f"Bearer {employee_token(user)}"}
+
+    for method, path in [
+        (client.post, "/leaves"),
+        (client.get, "/leaves/me"),
+        (client.get, "/leaves/balance/me"),
+    ]:
+        kwargs = {"headers": headers}
+        if method == client.post:
+            kwargs["json"] = leave_payload()
+
+        response = method(path, **kwargs)
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Employee account is inactive"
 
 
 def test_create_leave_invalid_date_range(client, db_session):
@@ -439,6 +466,45 @@ def test_approve_leave_insufficient_balance(client, db_session):
     )
 
 
+def test_cannot_approve_leave_over_existing_attendance(client, db_session):
+    admin = create_admin(db_session)
+    user, employee = create_employee(
+        db_session,
+        email="attendance.conflict@leave.test",
+        employee_number=20013
+    )
+    create_balance(db_session, employee.id)
+
+    leave_date = now().date() + timedelta(days=10)
+    leave = Leave(
+        employee_id=employee.id,
+        leave_type=LeaveType.VACATION,
+        start_date=leave_date,
+        end_date=leave_date,
+        reason="Attendance conflict",
+        status=LeaveStatus.PENDING,
+        created_at=now(),
+        updated_at=now(),
+    )
+    attendance = Attendance(
+        employee_id=employee.id,
+        date=leave_date,
+        status="present",
+    )
+    db_session.add_all([leave, attendance])
+    db_session.commit()
+
+    response = client.patch(
+        f"/leaves/{leave.id}/approve",
+        headers={"Authorization": f"Bearer {admin_token(admin)}"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Cannot approve leave that overlaps an attendance record"
+    )
+
+
 def test_approve_leave_without_balance(client, db_session):
     admin = create_admin(db_session)
     user, employee = create_employee(db_session)
@@ -464,6 +530,40 @@ def test_approve_leave_without_balance(client, db_session):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Leave balance not found"
+
+
+def test_cannot_approve_leave_for_inactive_employee(client, db_session):
+    admin = create_admin(db_session)
+    user, employee = create_employee(
+        db_session,
+        email="approval.inactive@leave.test",
+        employee_number=20012
+    )
+    create_balance(db_session, employee.id)
+
+    leave = Leave(
+        employee_id=employee.id,
+        leave_type=LeaveType.VACATION,
+        start_date=now().date() + timedelta(days=10),
+        end_date=now().date() + timedelta(days=11),
+        reason="Inactive employee leave",
+        status=LeaveStatus.PENDING,
+        created_at=now(),
+        updated_at=now(),
+    )
+    employee.status = "inactive"
+    db_session.add(leave)
+    db_session.commit()
+
+    response = client.patch(
+        f"/leaves/{leave.id}/approve",
+        headers={"Authorization": f"Bearer {admin_token(admin)}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Cannot approve leave for an inactive employee"
+    )
 
 
 def test_cannot_approve_non_pending_leave(client, db_session):
@@ -735,6 +835,8 @@ def test_admin_get_all_leaves(client, db_session):
     assert data["total"] == 1
     assert len(data["items"]) == 1
     assert data["items"][0]["id"] == leave.id
+    assert data["items"][0]["employee_number"] == employee.employee_number
+    assert data["items"][0]["employee_name"] == "Leave Employee"
 
 
 def test_employee_cannot_get_all_leaves(client, db_session):

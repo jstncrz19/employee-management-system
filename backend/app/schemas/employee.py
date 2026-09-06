@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from enum import Enum
 
@@ -13,36 +13,36 @@ class EmployeeStatus(str, Enum):
     TERMINATED = "terminated"
 
 class EmployeeCreate(BaseModel):
-    employee_number: int
-    first_name: str
-    last_name: str
+    employee_number: int = Field(gt=0)
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
     email: EmailStr
-    department: str
-    position: str
+    department: str = Field(min_length=1, max_length=100)
+    position: str = Field(min_length=1, max_length=100)
     date_hired: date
     status: EmployeeStatus = EmployeeStatus.ACTIVE
 
 class EmployeeUpdate(BaseModel):
-    employee_number: int
-    first_name: str
-    last_name: str
+    employee_number: int = Field(gt=0)
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
     email: EmailStr
-    department: str
-    position: str
+    department: str = Field(min_length=1, max_length=100)
+    position: str = Field(min_length=1, max_length=100)
     date_hired: date
-    status: str
+    status: EmployeeStatus
 
 class EmployeePatch(BaseModel):
-    first_name: str | None = None
-    last_name: str | None = None
+    first_name: str | None = Field(default=None, min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, min_length=1, max_length=100)
     email: EmailStr | None = None
-    department: str | None = None
-    position: str | None = None
+    department: str | None = Field(default=None, min_length=1, max_length=100)
+    position: str | None = Field(default=None, min_length=1, max_length=100)
     status: EmployeeStatus | None = None
 
 class EmployeeSelfUpdate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    first_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    last_name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     email: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")

@@ -4,11 +4,12 @@ from typing import Optional
 import math
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, func
+from sqlalchemy import String, select, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.time import now
-from app.core.security import get_current_employee
+from app.core.security import get_current_employee_user
 from app.core.permissions import require_admin
 from app.core.audit import create_audit_log
 
@@ -35,7 +36,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED
 )
 def check_in(
-    current_employee: Employee = Depends(get_current_employee),
+    current_employee: Employee = Depends(get_current_employee_user),
     db: Session = Depends(get_db)
 ):
     current_datetime = now()
@@ -76,24 +77,32 @@ def check_in(
         status="present"
     )
 
-    db.add(attendance)
-    db.flush()
+    try:
+        db.add(attendance)
+        db.flush()
 
-    create_audit_log(
-        db=db,
-        user_id=current_employee.user_id,
-        action="check_in",
-        entity_type="attendance",
-        entity_id=attendance.id,
-        details=(
-            f"Checked in {current_employee.first_name} "
-            f"{current_employee.last_name} "
-            f"(Employee #{current_employee.employee_number}) "
-            f"on {attendance.date} at {attendance.time_in}"
+        create_audit_log(
+            db=db,
+            user_id=current_employee.user_id,
+            action="check_in",
+            entity_type="attendance",
+            entity_id=attendance.id,
+            details=(
+                f"Checked in {current_employee.first_name} "
+                f"{current_employee.last_name} "
+                f"(Employee #{current_employee.employee_number}) "
+                f"on {attendance.date} at {attendance.time_in}"
+            )
         )
-    )
 
-    db.commit()
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Already checked in today"
+        )
+
     db.refresh(attendance)
 
     return attendance
@@ -104,7 +113,7 @@ def check_in(
     response_model=AttendanceResponse
 )
 def check_out(
-    current_employee: Employee = Depends(get_current_employee),
+    current_employee: Employee = Depends(get_current_employee_user),
     db: Session = Depends(get_db)
 ):
     current_datetime = now()
@@ -173,12 +182,25 @@ def check_out(
 def get_all_attendance(
     employee_id: Optional[int] = None,
     date: Optional[date] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    search: Optional[str] = Query(default=None, max_length=255),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=10, ge=1, le=100),
     current_user: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
-    query = select(Attendance)
+    if start_date and end_date and end_date < start_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="End date cannot be before start date"
+        )
+
+    query = select(
+        Attendance,
+        Employee.employee_number,
+        (Employee.first_name + " " + Employee.last_name).label("employee_name")
+    ).join(Employee, Attendance.employee_id == Employee.id)
 
     if employee_id:
         query = query.where(
@@ -188,8 +210,24 @@ def get_all_attendance(
         query = query.where(
             Attendance.date == date
         )
+    if start_date:
+        query = query.where(Attendance.date >= start_date)
+    if end_date:
+        query = query.where(Attendance.date <= end_date)
+    if search and search.strip():
+        search_term = f"%{search.strip()}%"
+        query = query.where(
+            (Employee.employee_number.cast(String).ilike(search_term))
+            | Employee.first_name.ilike(search_term)
+            | Employee.last_name.ilike(search_term)
+            | Employee.email.ilike(search_term)
+        )
 
-    count_query = select(func.count()).select_from(Attendance)
+    count_query = (
+        select(func.count())
+        .select_from(Attendance)
+        .join(Employee, Attendance.employee_id == Employee.id)
+    )
 
     if employee_id:
         count_query = count_query.where(
@@ -199,6 +237,18 @@ def get_all_attendance(
     if date:
         count_query = count_query.where(
             Attendance.date == date
+        )
+    if start_date:
+        count_query = count_query.where(Attendance.date >= start_date)
+    if end_date:
+        count_query = count_query.where(Attendance.date <= end_date)
+    if search and search.strip():
+        search_term = f"%{search.strip()}%"
+        count_query = count_query.where(
+            (Employee.employee_number.cast(String).ilike(search_term))
+            | Employee.first_name.ilike(search_term)
+            | Employee.last_name.ilike(search_term)
+            | Employee.email.ilike(search_term)
         )
 
     total = db.scalar(count_query) or 0
@@ -206,15 +256,29 @@ def get_all_attendance(
     pages = math.ceil(total / limit) if total > 0 else 0
     offset = (page - 1) * limit
 
-    attendance_records = db.scalars(
+    attendance_records = db.execute(
         query
         .order_by(Attendance.date.desc())
         .offset(offset)
         .limit(limit)
     ).all()
 
+    items = [
+        {
+            "id": attendance.id,
+            "employee_id": attendance.employee_id,
+            "employee_number": employee_number,
+            "employee_name": employee_name,
+            "date": attendance.date,
+            "time_in": attendance.time_in,
+            "time_out": attendance.time_out,
+            "status": attendance.status,
+        }
+        for attendance, employee_number, employee_name in attendance_records
+    ]
+
     return {
-        "items": attendance_records,
+        "items": items,
         "total": total,
         "page": page,
         "limit": limit,
@@ -227,7 +291,7 @@ def get_all_attendance(
     response_model=list[AttendanceResponse]
 )
 def get_my_attendance(
-    current_employee: Employee = Depends(get_current_employee),
+    current_employee: Employee = Depends(get_current_employee_user),
     db: Session = Depends(get_db)
 ):
     attendance_records = db.scalars(

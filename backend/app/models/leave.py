@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from enum import Enum
 
-from sqlalchemy import Date, DateTime, ForeignKey, String, Text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
@@ -20,6 +20,13 @@ class LeaveStatus(str, Enum):
 
 class Leave(Base):
     __tablename__ = "leaves"
+
+    __table_args__ = (
+        CheckConstraint(
+            "end_date >= start_date",
+            name="ck_leaves_valid_date_range"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(
         primary_key=True

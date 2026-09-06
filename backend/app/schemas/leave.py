@@ -16,6 +16,8 @@ class LeaveCreate(BaseModel):
 class LeaveResponse(BaseModel):
     id: int
     employee_id: int
+    employee_number: int | None = None
+    employee_name: str | None = None
     leave_type: LeaveType
     start_date: date
     end_date: date

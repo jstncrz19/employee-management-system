@@ -7,6 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.core.permissions import require_admin
+from app.core.time import TIMEZONE
 
 from app.models.audit_log import AuditLog
 from app.models.user import User
@@ -82,7 +83,8 @@ def get_audit_logs(
     if start_date:
         start_datetime = datetime.combine(
             start_date,
-            time.min
+            time.min,
+            tzinfo=TIMEZONE
         )
 
         query = query.where(
@@ -92,7 +94,8 @@ def get_audit_logs(
     if end_date:
         end_datetime = datetime.combine(
             end_date,
-            time.max
+            time.max,
+            tzinfo=TIMEZONE
         )
 
         query = query.where(
