@@ -1,16 +1,88 @@
-# React + Vite
+# Employee Management System — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The frontend is a single-page application built with **React** and **Vite**. It provides the user interface for the Employee Management System's FastAPI backend: login, role-based navigation, dashboards, employee management, attendance, and leave management.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React 19
+- Vite 8 (build tool + development server)
+- React Router (client-side routing)
+- Axios (HTTP client, JWT via Authorization header)
+- Plain CSS (no UI framework — no runtime CSS libraries)
 
-## React Compiler
+## How It Talks to the Backend
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- All API calls go through `src/services/api.js`, an Axios instance.
+- The base URL comes from `VITE_API_BASE_URL` and defaults to `http://localhost:8000`.
+- On login, the JWT is stored as `access_token` (localStorage).
+- A request interceptor attaches `Authorization: Bearer <token>` to every request.
+- A response interceptor clears the token and redirects to `/login` on any `401`.
+- `GET /users/me` resolves the current account (id, email, role) on app load; this drives the navigation and route guards.
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Requires Node.js (18+).
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The development server runs at `http://localhost:5173`. Make sure the backend is running on `http://localhost:8000` (see the root README).
+
+## Environment Configuration
+
+Copy the example file if the API is not reachable at the default URL:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | `http://localhost:8000` | Base URL of the FastAPI backend |
+
+## Routes
+
+Routes are role-protected by `src/components/ProtectedRoute.jsx`. Unauthenticated users are redirected to `/login`.
+
+### Public
+
+| Path | Page |
+| --- | --- |
+| `/login` | Login and employee self-registration |
+
+### Admin only
+
+| Path | Page |
+| --- | --- |
+| `/admin` | Admin dashboard (company overview) |
+| `/employees` | Employee management (create, edit, deactivate, provision accounts, manage balances) |
+| `/admin/attendance` | All attendance records with filters |
+| `/admin/leaves` | Leave requests (approve / reject) |
+| `/admin/audit-logs` | Audit log viewer |
+
+### Employee (and admin) self-service
+
+| Path | Page |
+| --- | --- |
+| `/dashboard` | Employee dashboard (check-in/out, balances, leave status) |
+| `/leaves` | My leaves and leave balances |
+
+## Production Build
+
+```bash
+npm run build
+```
+
+Outputs the optimized bundle to `frontend/dist`. Vite statically serves it; any reverse proxy should rewrite all non-asset routes to `index.html` so client-side routing works.
+
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the development server |
+| `npm run build` | Create the production build in `dist/` |
+| `npm run lint` | Run ESLint |
+| `npm run preview` | Preview the production build locally |

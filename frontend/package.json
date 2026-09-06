@@ -1,7 +1,8 @@
 {
-  "name": "frontend",
+  "name": "employee-management-system",
   "private": true,
   "version": "0.0.0",
+  "description": "React frontend for the Employee Management System.",
   "type": "module",
   "scripts": {
     "dev": "vite",

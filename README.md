@@ -1,44 +1,233 @@
 # Employee Management System
 
-A backend REST API for managing employees, attendance, leave requests, leave balances, authentication, dashboards, and audit logs.
+A full-stack employee management system for tracking employees, attendance, leave requests, leave balances, audit logs, and role-based admin/employee dashboards.
 
-Built with FastAPI, PostgreSQL, SQLAlchemy, Alembic, JWT authentication, and Docker.
+The backend is a FastAPI REST API backed by PostgreSQL. The frontend is a React (Vite) single-page application.
 
 ## Features
 
-- JWT-based authentication
-- Role-based authorization
-- Employee management
-- Employee account provisioning
-- Employee profile management
-- Attendance check-in and check-out
-- Attendance history
-- Leave request management
-- Leave approval and rejection
-- Leave cancellation
-- Leave balance tracking
-- Admin leave balance management
-- Admin dashboard
-- Employee dashboard
-- Audit logging
-- Filtering, sorting, and pagination
-- Employee account lifecycle protection
-- Dockerized development environment
-- Automated API testing with pytest
+### Authentication & Roles
+
+- JWT-based authentication with Argon2 password hashing
+- Role-based authorization (`admin` vs `employee`)
+- Self-service registration creates an employee account, linked employee profile, and default leave balances
+- No public route allows registering an admin account; the initial admin is created with a CLI script (see [Admin Account Setup](#admin-account-setup))
+
+### Employees
+
+- Admin CRUD for employees (create, update, deactivate)
+- Employee account provisioning (email + password) for employees without an account
+- Self-service employee profile endpoints
+- Search, status/department filters, sorting, and pagination
+- Prevents duplicate employee numbers/emails (HTTP 409)
+
+### Attendance
+
+- Employee check-in / check-out (one record per employee per day)
+- Check-in is blocked while the employee is on approved leave
+- Employee attendance history
+- Admin attendance list with employee/date-range filters, search, and pagination
+
+### Leave Management
+
+- Employee leave request creation (vacation, sick, emergency, other)
+- Admin approval and rejection; employee cancellation
+- Overlapping leave requests are rejected
+- Approving consumes the leave balance; cancellation restores it; rejection does not change the balance
+- Approving a leave that overlaps an existing attendance record is rejected
+- Leave balances per type with admin management (total days cannot drop below used days)
+- Leave list filtering (status, employee, type, date range, search), sorting, and pagination
+
+### Dashboards
+
+- Admin dashboard: total/active employees, present/absent employees, employees on leave, pending leave requests
+- Employee dashboard: today's attendance, leave balances, pending leaves, upcoming approved leaves, recent attendance
+
+### Audit Logging
+
+- Every significant action (create, update, approve, reject, cancel, check-in/out, register, deactivate) is written to an audit log
+- Admin-only audit log viewer with user/employee/action/entity filters, sorting, and pagination
+
+### API Quality
+
+- Pydantic request/response validation (422 on invalid input)
+- Consistent error semantics: 400 (invalid business logic), 401 (unauthenticated), 403 (forbidden), 404 (not found), 409 (conflict)
+- Filtering, sorting, and pagination across list endpoints
+- Automatic OpenAPI documentation
+- 228 automated API tests run in CI
 
 ## Tech Stack
 
+### Backend
+
 - Python 3.10
 - FastAPI
+- SQLAlchemy 2.0 (ORM)
+- Pydantic v2 (validation / schemas)
+- Alembic (database migrations)
 - PostgreSQL
-- SQLAlchemy
-- Alembic
-- Pydantic
-- JWT
-- Argon2 password hashing
-- pytest
-- Docker
-- Docker Compose
+- JWT (PyJWT) + Argon2 (pwdlib) authentication
+- pytest (test suite)
+
+### Frontend
+
+- React 19
+- Vite
+- React Router
+- Axios
+
+### Infrastructure
+
+- Docker / Docker Compose
+- GitHub Actions (backend CI)
+
+## Architecture
+
+```text
+                 +-------------------+
+                 |   React SPA       |
+                 |   (Vite, /:5173)  |
+                 +---------+---------+
+                           |  HTTP / JSON (JWT in Authorization header)
+                           v
+                 +-------------------+
+                 |   FastAPI API     |
+                 |   (uvicorn, /:8000)|
+                 +---------+---------+
+                           |
+              +------------+------------+
+              |                         |
+        +-----v------+           +------v------+
+        |  Routers   |           | Auth/RBAC   |
+        |  Schemas   |           | Security    |
+        +-----+------+           +------+------+
+              |                         |
+              +------------+------------+
+                           |
+              +------------v------------+
+              |      SQLAlchemy ORM      |
+              |  + Audit logging hooks   |
+              +------------+------------+
+                           |
+              +------------v------------+
+              |      PostgreSQL          |
+              +-------------------------+
+```
+
+- **Routers** (`backend/app/routers/`) — HTTP layer: auth, users, employees, attendance, leaves, dashboard, audit-logs
+- **Schemas** (`backend/app/schemas/`) — Pydantic request/response models
+- **Models** (`backend/app/models/`) — SQLAlchemy ORM models
+- **Core** (`backend/app/core/`) — security (JWT, password hashing, dependency guards), audit logging, timezone-aware `now()`
+- **Config** (`backend/config.py`) — environment-driven configuration
+- **Migrations** (`backend/alembic/`) — versioned database migrations
+
+## Database
+
+Tables (managed by Alembic):
+
+- `users` — accounts with email, Argon2 password hash, role
+- `employees` — employee profiles linked to users (optional for admins)
+- `attendance` — one record per employee per day
+- `leaves` — leave requests
+- `leave_balances` — per-employee, per-type balances
+- `audit_logs` — audit trail
+- `alembic_version` — migration bookkeeping
+
+## Authentication & Authorization
+
+### How it works
+
+1. `POST /auth/login` with email + password returns a signed JWT access token (default 30-minute expiry, configurable).
+2. The frontend stores the token and sends it as `Authorization: Bearer <token>`.
+3. A token can be created for any account; `GET /users/me` returns the current account's id, email, and role.
+
+### Roles
+
+| Role | What it can do |
+| --- | --- |
+| `admin` | Everything: employee management, approve/reject leaves, admin attendance, dashboards, audit logs, leave balances. Admins do not need an employee profile. |
+| `employee` | Self-service only: own attendance, own leaves, own balances, own dashboard. |
+
+### Error semantics
+
+- `401` — missing, invalid, or expired token, or bad login credentials
+- `403` — authenticated but not authorized for the endpoint (e.g., employee calling an admin endpoint)
+- `422` — request body/query failed Pydantic validation
+
+### Registering accounts
+
+- `POST /auth/register` — creates an **employee** account plus linked profile and default leave balances (vacation 15, sick 15, emergency 5, other 0). It never creates admin accounts.
+- Admins can provision an employee account via `POST /employees/{employee_id}/account` (email + password).
+
+## Key Workflows
+
+### Leave workflow
+
+1. Employee submits a leave request (type, start date, end date, reason). Overlapping requests are rejected.
+2. Admin approves or rejects: approving consumes `used_days` from the balance and is blocked if insufficient days remain or if the leave overlaps an attendance record; rejection leaves the balance unchanged.
+3. The employee can cancel a request. Cancelling an approved request restores the deducted days; pending requests have no balance impact.
+4. Each step (create, approve, reject, cancel) is recorded in the audit log.
+
+### Attendance workflow
+
+1. Employee checks in (once per day). Check-in is blocked while on approved leave.
+2. Employee checks out.
+3. Employees see their own history; admins see all records with filters and search.
+
+### Audit logging
+
+- `app/core/audit.py` centralizes log creation.
+- Every audited action records the acting user, action, entity type/id, details, and timestamp.
+- Admins review logs via `GET /audit-logs`.
+
+### Search / filter / sort / pagination
+
+- List endpoints (`/employees`, `/attendance`, `/leaves`, `/audit-logs`) support a consistent pattern:
+  - **Search** — text match on relevant fields (`search`)
+  - **Filters** — optional query parameters (status, department, date ranges, entity/action, ...)
+  - **Sorting** — `sort_by` + `sort_order` on whitelisted fields
+  - **Pagination** — `page` + `limit`, with total count and page metadata in the response
+
+## API Reference
+
+All routers are tagged, so the full interactive documentation is generated automatically:
+
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+
+### Endpoint summary
+
+| Method | Path | Access | Purpose |
+| --- | --- | --- | --- |
+| GET | `/` | Public | API banner |
+| GET | `/health` | Public | Health check |
+| POST | `/auth/register` | Public | Register an employee account + profile + balances |
+| POST | `/auth/login` | Public | Exchange credentials for a JWT |
+| GET | `/users/me` | Authenticated | Current account (id, email, role) |
+| POST | `/employees` | Admin | Create employee |
+| POST | `/employees/{employee_id}/account` | Admin | Provision an account for an employee |
+| GET | `/employees` | Admin | List with search/filter/sort/pagination |
+| GET | `/employees/{employee_id}` | Admin | Get one employee |
+| PATCH | `/employees/{employee_id}` | Admin | Update employee |
+| DELETE | `/employees/{employee_id}` | Admin | Deactivate employee |
+| GET | `/employees/me` | Employee | Own employee profile |
+| PATCH | `/employees/me` | Employee | Update own profile |
+| POST | `/attendance/check-in` | Employee | Check in |
+| POST | `/attendance/check-out` | Employee | Check out |
+| GET | `/attendance/me` | Employee | Own attendance history |
+| GET | `/attendance` | Admin | All attendance with filters/search/pagination |
+| POST | `/leaves` | Employee | Create leave request |
+| GET | `/leaves/me` | Employee | Own leave requests |
+| GET | `/leaves` | Admin | All leave requests with filters/sort/pagination |
+| GET | `/leaves/balance/me` | Employee | Own leave balances |
+| GET | `/leaves/balance/{employee_id}` | Admin | An employee's leave balances |
+| PATCH | `/leaves/balance/{employee_id}/{leave_type}` | Admin | Update a balance's total days |
+| PATCH | `/leaves/{leave_id}/cancel` | Employee | Cancel own request |
+| PATCH | `/leaves/{leave_id}/approve` | Admin | Approve request |
+| PATCH | `/leaves/{leave_id}/reject` | Admin | Reject request |
+| GET | `/dashboard/me` | Employee | Employee dashboard data |
+| GET | `/dashboard/summary` | Admin | Admin dashboard summary |
+| GET | `/audit-logs` | Admin | View audit logs |
 
 ## Project Structure
 
@@ -46,64 +235,71 @@ Built with FastAPI, PostgreSQL, SQLAlchemy, Alembic, JWT authentication, and Doc
 employee-management-system/
 ├── backend/
 │   ├── app/
-│   │   ├── core/
-│   │   ├── models/
-│   │   ├── routers/
-│   │   └── schemas/
-│   ├── alembic/
-│   │   └── versions/
-│   ├── tests/
-│   ├── .dockerignore
-│   ├── .env.example
+│   │   ├── core/          # security, audit, permissions, time
+│   │   ├── models/        # SQLAlchemy models
+│   │   ├── routers/       # FastAPI route handlers
+│   │   └── schemas/       # Pydantic models
+│   ├── alembic/           # database migrations
+│   ├── scripts/           # admin bootstrap CLI
+│   ├── tests/             # pytest suite
 │   ├── Dockerfile
 │   ├── alembic.ini
 │   ├── config.py
 │   ├── database.py
 │   ├── main.py
 │   └── requirements.txt
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   │   ├── components/    # Navbar, ProtectedRoute
+│   │   ├── context/       # auth state
+│   │   ├── hooks/         # useAuth
+│   │   ├── pages/         # Login, dashboards, tables, forms
+│   │   └── services/      # API client, auth helpers
+│   ├── index.html
+│   └── package.json
 ├── docker-compose.yml
-├── PROJECT_DECISIONS.md
-├── .gitignore
 └── README.md
 ```
 
-## Requirements
+## Getting Started
 
-For the Docker setup, you only need:
+### Prerequisites
 
+Only two tools are required:
+
+- [Docker](https://docs.docker.com/get-docker/) (with Docker Compose)
 - Git
-- Docker Desktop
-- VS Code
 
-Python and PostgreSQL do not need to be installed separately when using the Docker workflow.
+Python, Node.js, and PostgreSQL are **not** needed for the Docker workflow — they run inside containers. Node.js is only needed if you prefer to run the frontend outside Docker (see [Frontend Setup](#frontend-setup)).
 
-## Environment Variables
+### 1. Environment variables
 
-Create a `.env` file inside `backend/`.
-
-You can use `.env.example` as a template:
-
-```text
-DATABASE_URL=postgresql+psycopg://postgres:YOUR_PASSWORD@localhost:5432/employee_management
-JWT_SECRET_KEY=change-this-to-a-random-secret
-```
-
-The `.env` file is intentionally excluded from Git.
-
-## Running with Docker
-
-Clone the repository:
+Copy the example environment file into place:
 
 ```bash
-git clone <repository-url>
-cd employee-management-system
+cp .env.example .env
 ```
 
-Start the application and PostgreSQL:
+Edit `.env` and set at least:
+
+```dotenv
+POSTGRES_PASSWORD=change-this-password
+JWT_SECRET_KEY=change-this-to-a-long-random-secret
+```
+
+`docker compose` reads this `.env` automatically. Never commit it (`.env` is git-ignored).
+
+### 2. Start the backend and database
 
 ```bash
 docker compose up -d
 ```
+
+This starts:
+
+- `backend` — the FastAPI app on `http://localhost:8000`
+- `postgres` — the database
 
 Check the containers:
 
@@ -111,311 +307,170 @@ Check the containers:
 docker compose ps
 ```
 
-Run the database migrations:
+### 3. Apply database migrations
 
 ```bash
 docker compose exec backend alembic upgrade head
 ```
 
-Check the current migration:
+### 4. Create the initial admin account
+
+Registration only creates **employee** accounts, so a fresh installation has no admin. Create one now (this script only works until the first admin exists):
 
 ```bash
-docker compose exec backend alembic current
+docker compose exec backend python -m scripts.create_admin \
+  --email admin@example.com \
+  --password 'choose-a-strong-password'
 ```
 
-The API will be available at:
-
-```text
-http://localhost:8000
-```
-
-Swagger API documentation:
-
-```text
-http://localhost:8000/docs
-```
-
-ReDoc:
-
-```text
-http://localhost:8000/redoc
-```
-
-## Stopping the Application
-
-Stop the containers:
+Naming the `--password` argument is not required; the script prompts interactively if it is omitted:
 
 ```bash
-docker compose down
+docker compose exec backend python -m scripts.create_admin --email admin@example.com
 ```
 
-The PostgreSQL data is stored in a Docker volume and will remain available when the containers are started again.
+The script uses the standard password-hashing and authentication system. It refuses to run a second time (once an admin exists) and refuses emails already in use.
+
+### 5. Run the frontend
+
+See [Frontend Setup](#frontend-setup). With the API running on port 8000, the frontend on port 5173 can be started with:
 
 ```bash
-docker compose up -d
+cd frontend
+npm install
+npm run dev
 ```
 
-To remove the containers and PostgreSQL volume:
+Then open `http://localhost:5173`. Log in as the admin created in step 4, or register a new employee account from the login page.
+
+### 6. Verify it works
+
+- API: `http://localhost:8000`
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- Health check: `http://localhost:8000/health`
+
+## Frontend Setup
+
+The frontend is a React SPA in `frontend/` that talks to the FastAPI backend over HTTP with a bearer token.
 
 ```bash
-docker compose down -v
+cd frontend
+npm install
+npm run dev        # development server on http://localhost:5173
+npm run lint       # ESLint
+npm run build      # production build to frontend/dist
 ```
 
-> Warning: `docker compose down -v` deletes the Docker PostgreSQL database volume.
+### Frontend environment
 
-## Database Migrations
-
-Create a new migration after changing database models:
-
-```bash
-docker compose exec backend alembic revision --autogenerate -m "description"
+```dotenv
+VITE_API_BASE_URL=http://localhost:8000
 ```
 
-Apply migrations:
+Set it in `frontend/.env` (see `frontend/.env.example`) only if the API is not at `http://localhost:8000`.
+
+### Frontend routes
+
+| Path | Access | Page |
+| --- | --- | --- |
+| `/login` | Public | Login / register |
+| `/admin` | Admin | Admin dashboard |
+| `/employees` | Admin | Employee management |
+| `/admin/attendance` | Admin | Attendance records |
+| `/admin/leaves` | Admin | Leave requests (approve/reject) |
+| `/admin/audit-logs` | Admin | Audit log viewer |
+| `/dashboard` | Employee | Employee dashboard |
+| `/leaves` | Admin + Employee | My leaves / leave balances |
+
+## Backend Setup Without Docker
+
+Optional — only needed if you want the backend on your host instead of in Docker.
 
 ```bash
+cd backend
+python -m venv .venv
+# Windows: .venv\Scripts\activate     Linux/macOS: source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env        # then edit DATABASE_URL / JWT_SECRET_KEY
+alembic upgrade head
+uvicorn main:app --reload
+```
+
+The backend `.env` (for local runs) uses a `DATABASE_URL` such as `postgresql+psycopg://postgres:YOUR_PASSWORD@localhost:5432/employee_management`.
+
+## Environment Variables
+
+### Root `.env` (used by Docker Compose)
+
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `POSTGRES_DB` | — | `employee_management` | PostgreSQL database name |
+| `POSTGRES_USER` | — | `postgres` | PostgreSQL user |
+| `POSTGRES_PASSWORD` | Yes | — | PostgreSQL password |
+| `JWT_SECRET_KEY` | Yes | — | Secret used to sign/verify JWTs (use a long random value) |
+| `JWT_ALGORITHM` | — | `HS256` | JWT signing algorithm |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | — | `30` | Access token lifetime in minutes |
+| `CORS_ORIGINS` | — | `http://localhost:5173` | Comma-separated allowed CORS origins |
+
+### Backend `.env` (only for running backend outside Docker)
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | SQLAlchemy connection string |
+| `JWT_SECRET_KEY` | Yes | JWT signing secret |
+| `JWT_ALGORITHM` | No | Default `HS256` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No | Default `30` |
+| `CORS_ORIGINS` | No | Default `http://localhost:5173` |
+
+### Frontend `.env`
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | `http://localhost:8000` | Base URL of the FastAPI backend |
+
+## Testing
+
+The backend has **228 passing tests** covering authentication, authorization, validation, business logic, defensive branches, and the admin bootstrap script. CI runs the suite against a real PostgreSQL service on every push and pull request.
+
+```bash
+docker compose exec backend pytest -q
+```
+
+### What the suite covers
+
+- Authentication and registration (including conflict/validation branches)
+- Authorization regression matrix: unauthenticated → 401, employee → admin endpoint 403, admin → employee endpoint 403
+- Employee CRUD, lifecycle, account provisioning, duplicate protection, filtering/sorting/pagination
+- Attendance check-in/out, duplicate rejection, approved-leave blocking, filters/pagination
+- Leave create/approve/reject/cancel, balance consumption & restoration, overlap & date validation, insufficient-balance rejection
+- Dashboards (admin + employee)
+- Audit log endpoints and audit trail generation
+- `GET /users/me` (including invalid/expired tokens)
+- Admin bootstrap script safeguards
+
+## Docker Development Workflow
+
+```bash
+docker compose up -d                       # start backend + postgres
 docker compose exec backend alembic upgrade head
+docker compose logs -f backend             # follow backend logs
+docker compose ps                          # container status
+docker compose down                        # stop (data persists in the volume)
+docker compose down -v                     # stop AND delete the database volume
 ```
 
-Check the current migration:
+> `docker compose down -v` deletes all data. Use with care.
+
+### Rebuilding after code changes
 
 ```bash
-docker compose exec backend alembic current
+docker compose build backend
+docker compose up -d backend
 ```
-
-## Running Tests
-
-The project uses pytest for automated API testing.
-
-The current test suite covers:
-
-- Authentication
-- Employee management
-- Attendance
-- Leave management
-- Leave balances
-- Dashboard
-- Audit logs
-- Root endpoint
-- Authorization
-- Validation
-- Employee account lifecycle
-
-Run the test suite:
-
-```bash
-pytest
-```
-
-The current test suite contains 134 passing tests.
-
-## API Modules
-
-### Authentication
-
-- Register
-- Login
-- JWT access tokens
-- Password hashing
-- Active/inactive employee validation
-- Employee profile validation
-
-### Employees
-
-- Create employee
-- Update employee
-- Patch employee
-- Delete/deactivate employee
-- Get employee
-- Get current employee profile
-- Update current employee profile
-- Employee filtering
-- Search
-- Sorting
-- Pagination
-- Employee account provisioning
-
-### Attendance
-
-- Check-in
-- Check-out
-- Personal attendance history
-- Admin attendance records
-- Attendance filtering
-- Pagination
-- Approved-leave validation
-
-### Leave Management
-
-- Create leave request
-- View leave requests
-- Approve leave
-- Reject leave
-- Cancel leave
-- Leave overlap validation
-- Date validation
-- Leave balance validation
-- Leave balance consumption
-- Leave balance restoration
-- Leave filtering
-- Sorting
-- Pagination
-
-### Dashboard
-
-Admin dashboard provides:
-
-- Total employees
-- Active employees
-- Present employees
-- Absent employees
-- Employees on leave
-- Pending leave requests
-
-Employee dashboard provides:
-
-- Today's attendance
-- Leave balances
-- Pending leaves
-- Upcoming approved leaves
-- Recent attendance
-
-### Audit Logs
-
-Administrators can view audit logs with:
-
-- User information
-- Employee information
-- Action
-- Entity type
-- Entity ID
-- Details
-- Date filtering
-- Action filtering
-- Entity filtering
-- Sorting
-- Pagination
-
-## Architecture
-
-```text
-Client
-  │
-  ▼
-FastAPI
-  │
-  ├── Authentication / Authorization
-  ├── Routers
-  ├── Pydantic Schemas
-  ├── SQLAlchemy Models
-  ├── Audit Logging
-  └── Database Access
-        │
-        ▼
-    PostgreSQL
-```
-
-When running with Docker:
-
-```text
-                 Docker Compose
-                      │
-          ┌───────────┴───────────┐
-          ▼                       ▼
-     FastAPI                 PostgreSQL
-     Container                Container
-          │                       │
-          └──── Docker Network ───┘
-                    │
-              PostgreSQL
-                 Volume
-```
-
-## Development Workflow
-
-Create a feature branch:
-
-```bash
-git checkout main
-git pull
-git checkout -b feature/<feature-name>
-```
-
-Run the application:
-
-```bash
-docker compose up -d
-```
-
-Apply migrations:
-
-```bash
-docker compose exec backend alembic upgrade head
-```
-
-Run tests:
-
-```bash
-pytest
-```
-
-After changes are verified:
-
-```bash
-git add .
-git commit -m "Description of changes"
-git push origin feature/<feature-name>
-```
-
-## Docker Workflow
-
-The Docker environment provides:
-
-- FastAPI application container
-- PostgreSQL database container
-- Docker network for service communication
-- Persistent PostgreSQL volume
-- Reproducible Python dependencies
-- Database migrations through Alembic
-
-The backend connects to PostgreSQL using the Docker service name:
-
-```text
-postgres
-```
-
-rather than:
-
-```text
-localhost
-```
-
-This allows the application and database to communicate correctly inside the Docker network.
-
-## Current Database Tables
-
-- `users`
-- `employees`
-- `attendance`
-- `leaves`
-- `leave_balances`
-- `audit_logs`
-- `alembic_version`
-
-## Testing Status
-
-The backend currently has:
-
-```text
-134 passed
-```
-
-across the complete pytest suite.
 
 ## Notes
 
-The repository does not contain the actual `.env` file or local Python virtual environment.
-
-These are intentionally excluded from version control.
-
-Docker provides the reproducible application and PostgreSQL environment for development and deployment.
+- `.env` files are git-ignored; the repository only tracks `.env.example` templates.
+- Application timezone is set to `Asia/Manila` in `backend/config.py`.
+- Access tokens expire (default 30 minutes) and the frontend redirects to `/login` on a 401.
