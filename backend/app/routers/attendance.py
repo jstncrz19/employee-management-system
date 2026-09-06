@@ -86,8 +86,10 @@ def check_in(
         entity_type="attendance",
         entity_id=attendance.id,
         details=(
-            f"Checked in on {attendance.date} "
-            f"at {attendance.time_in}"
+            f"Checked in {current_employee.first_name} "
+            f"{current_employee.last_name} "
+            f"(Employee #{current_employee.employee_number}) "
+            f"on {attendance.date} at {attendance.time_in}"
         )
     )
 
@@ -151,8 +153,10 @@ def check_out(
         entity_type="attendance",
         entity_id=attendance.id,
         details=(
-            f"Checked out on {attendance.date} "
-            f"at {attendance.time_out}"
+            f"Checked out {current_employee.first_name} "
+            f"{current_employee.last_name} "
+            f"(Employee #{current_employee.employee_number}) "
+            f"on {attendance.date} at {attendance.time_out}"
         )
     )
 

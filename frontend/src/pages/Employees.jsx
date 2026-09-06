@@ -1,0 +1,978 @@
+import { useEffect, useState } from "react";
+
+import api from "../services/api";
+import Navbar from "../components/Navbar";
+
+const LEAVE_TYPES = [
+  "vacation",
+  "sick",
+  "emergency",
+  "other",
+];
+
+function Employees() {
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [form, setForm] = useState({
+    employee_number: "",
+    first_name: "",
+    last_name: "",
+    email: "",
+    department: "",
+    position: "",
+    date_hired: "",
+    status: "active",
+  });
+
+  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [editForm, setEditForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    department: "",
+    position: "",
+    status: "active",
+  });
+
+  const [accountEmployee, setAccountEmployee] = useState(null);
+  const [accountForm, setAccountForm] = useState({
+    email: "",
+    password: "",
+  });
+
+  const [accountSubmitting, setAccountSubmitting] = useState(false);
+
+  const [balanceEmployee, setBalanceEmployee] = useState(null);
+  const [balances, setBalances] = useState([]);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [balanceUpdating, setBalanceUpdating] = useState(null);
+
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
+
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalEmployees, setTotalEmployees] = useState(0);
+
+  const fetchEmployees = async (
+    pageNumber = 1,
+    searchOverride = search
+  ) => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const params = {
+        page: pageNumber,
+        limit,
+      };
+
+      if (searchOverride.trim()) {
+        params.search = searchOverride.trim();
+      }
+
+      if (statusFilter) {
+        params.status = statusFilter;
+      }
+
+      if (departmentFilter.trim()) {
+        params.department = departmentFilter.trim();
+      }
+
+      const response = await api.get("/employees", {
+        params,
+      });
+
+      setEmployees(response.data.items);
+      setTotalPages(response.data.pages);
+      setTotalEmployees(response.data.total);
+      setPage(response.data.page);
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+          "Unable to load employees."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmployees(page);
+  }, [page]);
+
+  const handleSearch = () => {
+    const trimmedSearch = searchInput.trim();
+
+    setSearch(trimmedSearch);
+
+    if (page !== 1) {
+      setPage(1);
+    } else {
+      fetchEmployees(1, trimmedSearch);
+    }
+  };
+
+  const handleClearFilters = () => {
+    setSearchInput("");
+    setSearch("");
+    setStatusFilter("");
+    setDepartmentFilter("");
+
+    if (page !== 1) {
+      setPage(1);
+    } else {
+      fetchEmployees(1, "");
+    }
+  };
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setForm((currentForm) => ({
+      ...currentForm,
+      [name]: value,
+    }));
+  };
+
+  const handleCreate = async (event) => {
+    event.preventDefault();
+
+    setError("");
+    setMessage("");
+    setSubmitting(true);
+
+    try {
+      await api.post("/employees", {
+        employee_number: Number(form.employee_number),
+        first_name: form.first_name,
+        last_name: form.last_name,
+        email: form.email,
+        department: form.department,
+        position: form.position,
+        date_hired: form.date_hired,
+        status: form.status,
+      });
+
+      setMessage("Employee created successfully.");
+
+      setForm({
+        employee_number: "",
+        first_name: "",
+        last_name: "",
+        email: "",
+        department: "",
+        position: "",
+        date_hired: "",
+        status: "active",
+      });
+
+      setShowForm(false);
+
+      await fetchEmployees();
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+          "Unable to create employee."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditClick = (employee) => {
+    setEditingEmployee(employee);
+
+    setEditForm({
+      first_name: employee.first_name,
+      last_name: employee.last_name,
+      email: employee.email,
+      department: employee.department,
+      position: employee.position,
+      status: employee.status,
+    });
+
+    setError("");
+    setMessage("");
+  };
+
+  const handleEditChange = (event) => {
+    const { name, value } = event.target;
+
+    setEditForm((currentForm) => ({
+      ...currentForm,
+      [name]: value,
+    }));
+  };
+
+  const handleUpdate = async (event) => {
+    event.preventDefault();
+
+    setError("");
+    setMessage("");
+
+    const changedFields = {};
+
+    const editableFields = [
+      "first_name",
+      "last_name",
+      "email",
+      "department",
+      "position",
+      "status",
+    ];
+
+    editableFields.forEach((field) => {
+      if (editForm[field] !== editingEmployee[field]) {
+        changedFields[field] = editForm[field];
+      }
+    });
+
+    if (Object.keys(changedFields).length === 0) {
+      setMessage("No changes were made.");
+      return;
+    }
+
+    try {
+      await api.patch(
+        `/employees/${editingEmployee.id}`,
+        changedFields
+      );
+
+      setMessage("Employee updated successfully.");
+      setEditingEmployee(null);
+
+      await fetchEmployees();
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+          "Unable to update employee."
+      );
+    }
+  };
+
+  const handleDeactivate = async (employee) => {
+    const confirmed = window.confirm(
+      `Deactivate ${employee.first_name} ${employee.last_name}?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+
+    try {
+      await api.delete(`/employees/${employee.id}`);
+
+      setMessage("Employee deactivated successfully.");
+
+      await fetchEmployees();
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+          "Unable to deactivate employee."
+      );
+    }
+  };
+
+  const handleAccountChange = (event) => {
+    const { name, value } = event.target;
+
+    setAccountForm((currentForm) => ({
+      ...currentForm,
+      [name]: value,
+    }));
+  };
+
+  const handleAccountClick = (employee) => {
+    setAccountEmployee(employee);
+
+    setAccountForm({
+      email: employee.email,
+      password: "",
+    });
+
+    setError("");
+    setMessage("");
+  };
+
+  const handleCreateAccount = async (event) => {
+    event.preventDefault();
+
+    setError("");
+    setMessage("");
+    setAccountSubmitting(true);
+
+    try {
+      await api.post(
+        `/employees/${accountEmployee.id}/account`,
+        {
+          email: accountForm.email,
+          password: accountForm.password,
+        }
+      );
+
+      setMessage("Employee account created successfully.");
+
+      setAccountEmployee(null);
+
+      setAccountForm({
+        email: "",
+        password: "",
+      });
+
+      await fetchEmployees();
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+          "Unable to create employee account."
+      );
+    } finally {
+      setAccountSubmitting(false);
+    }
+  };
+
+  const handleBalanceClick = async (employee) => {
+    setBalanceEmployee(employee);
+    setBalances([]);
+    setBalanceLoading(true);
+
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await api.get(
+        `/leaves/balance/${employee.id}`
+      );
+
+      setBalances(response.data);
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+          "Unable to load leave balances."
+      );
+      setBalanceEmployee(null);
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
+  const handleBalanceChange = (leaveType, value) => {
+    setBalances((currentBalances) =>
+      currentBalances.map((balance) =>
+        balance.leave_type === leaveType
+          ? {
+              ...balance,
+              total_days: value,
+              remaining_days:
+                Number(value) - balance.used_days,
+            }
+          : balance
+      )
+    );
+  };
+
+  const handleBalanceUpdate = async (balance) => {
+    setError("");
+    setMessage("");
+    setBalanceUpdating(balance.leave_type);
+
+    try {
+      const response = await api.patch(
+        `/leaves/balance/${balanceEmployee.id}/${balance.leave_type}`,
+        {
+          total_days: Number(balance.total_days),
+        }
+      );
+
+      setBalances((currentBalances) =>
+        currentBalances.map((currentBalance) =>
+          currentBalance.leave_type ===
+          balance.leave_type
+            ? response.data
+            : currentBalance
+        )
+      );
+
+      setMessage(
+        `${formatLeaveType(
+          balance.leave_type
+        )} balance updated successfully.`
+      );
+    } catch (error) {
+      setError(
+        error.response?.data?.detail ||
+          "Unable to update leave balance."
+      );
+    } finally {
+      setBalanceUpdating(null);
+    }
+  };
+
+  const formatLeaveType = (leaveType) => {
+    return (
+      leaveType.charAt(0).toUpperCase() +
+      leaveType.slice(1)
+    );
+  };
+
+  if (loading) {
+    return <p>Loading employees...</p>;
+  }
+
+  return (
+    <div>
+      <Navbar />
+
+      <main className="page-container">
+        <h1>Employee Management</h1>
+
+        {error && <div className="error">{error}</div>}
+        {message && <div className="success">{message}</div>}
+
+        <button
+          onClick={() => {
+            setShowForm((current) => !current);
+            setError("");
+            setMessage("");
+          }}
+        >
+          {showForm ? "Cancel" : "Add Employee"}
+        </button>
+
+        {showForm && (
+          <section>
+            <h2>Create Employee</h2>
+
+            <form onSubmit={handleCreate}>
+              <div>
+                <label htmlFor="employee-number">
+                  Employee Number
+                </label>
+                <input
+                  id="employee-number"
+                  name="employee_number"
+                  type="number"
+                  value={form.employee_number}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="first-name">
+                  First Name
+                </label>
+                <input
+                  id="first-name"
+                  name="first_name"
+                  value={form.first_name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="last-name">
+                  Last Name
+                </label>
+                <input
+                  id="last-name"
+                  name="last_name"
+                  value={form.last_name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="employee-email">
+                  Email
+                </label>
+                <input
+                  id="employee-email"
+                  name="email"
+                  type="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="department">
+                  Department
+                </label>
+                <input
+                  id="department"
+                  name="department"
+                  value={form.department}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="position">
+                  Position
+                </label>
+                <input
+                  id="position"
+                  name="position"
+                  value={form.position}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="date-hired">
+                  Date Hired
+                </label>
+                <input
+                  id="date-hired"
+                  name="date_hired"
+                  type="date"
+                  value={form.date_hired}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+              >
+                {submitting
+                  ? "Creating..."
+                  : "Create Employee"}
+              </button>
+            </form>
+          </section>
+        )}
+
+        {editingEmployee && (
+          <section>
+            <h2>Edit Employee</h2>
+
+            <form onSubmit={handleUpdate}>
+              <div>
+                <label htmlFor="edit-first-name">
+                  First Name
+                </label>
+                <input
+                  id="edit-first-name"
+                  name="first_name"
+                  value={editForm.first_name}
+                  onChange={handleEditChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-last-name">
+                  Last Name
+                </label>
+                <input
+                  id="edit-last-name"
+                  name="last_name"
+                  value={editForm.last_name}
+                  onChange={handleEditChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-email">
+                  Email
+                </label>
+                <input
+                  id="edit-email"
+                  name="email"
+                  type="email"
+                  value={editForm.email}
+                  onChange={handleEditChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-department">
+                  Department
+                </label>
+                <input
+                  id="edit-department"
+                  name="department"
+                  value={editForm.department}
+                  onChange={handleEditChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-position">
+                  Position
+                </label>
+                <input
+                  id="edit-position"
+                  name="position"
+                  value={editForm.position}
+                  onChange={handleEditChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-status">
+                  Status
+                </label>
+                <select
+                  id="edit-status"
+                  name="status"
+                  value={editForm.status}
+                  onChange={handleEditChange}
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="resigned">
+                    Resigned
+                  </option>
+                  <option value="terminated">
+                    Terminated
+                  </option>
+                </select>
+              </div>
+
+              <button type="submit">
+                Save Changes
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setEditingEmployee(null)}
+              >
+                Cancel
+              </button>
+            </form>
+          </section>
+        )}
+
+        {accountEmployee && (
+          <section>
+            <h2>
+              Create Account for{" "}
+              {accountEmployee.first_name}{" "}
+              {accountEmployee.last_name}
+            </h2>
+
+            <form onSubmit={handleCreateAccount}>
+              <div>
+                <label htmlFor="account-email">
+                  Email
+                </label>
+
+                <input
+                  id="account-email"
+                  name="email"
+                  type="email"
+                  value={accountForm.email}
+                  onChange={handleAccountChange}
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="account-password">
+                  Password
+                </label>
+
+                <input
+                  id="account-password"
+                  name="password"
+                  type="password"
+                  value={accountForm.password}
+                  onChange={handleAccountChange}
+                  required
+                  minLength={8}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={accountSubmitting}
+              >
+                {accountSubmitting
+                  ? "Creating..."
+                  : "Create Account"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAccountEmployee(null)}
+              >
+                Cancel
+              </button>
+            </form>
+          </section>
+        )}
+
+        {balanceEmployee && (
+          <section>
+            <h2>
+              Leave Balances —{" "}
+              {balanceEmployee.first_name}{" "}
+              {balanceEmployee.last_name}
+            </h2>
+
+            {balanceLoading ? (
+              <p>Loading leave balances...</p>
+            ) : (
+              <>
+                {balances.map((balance) => (
+                  <div
+                    key={balance.leave_type}
+                  >
+                    <h3>
+                      {formatLeaveType(
+                        balance.leave_type
+                      )}
+                    </h3>
+
+                    <div>
+                      <label
+                        htmlFor={`balance-${balance.leave_type}`}
+                      >
+                        Total Days
+                      </label>
+
+                      <input
+                        id={`balance-${balance.leave_type}`}
+                        type="number"
+                        min="0"
+                        max="365"
+                        value={balance.total_days}
+                        onChange={(event) =>
+                          handleBalanceChange(
+                            balance.leave_type,
+                            event.target.value
+                          )
+                        }
+                      />
+                    </div>
+
+                    <p>
+                      Used Days:{" "}
+                      {balance.used_days}
+                    </p>
+
+                    <p>
+                      Remaining Days:{" "}
+                      {balance.remaining_days}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleBalanceUpdate(balance)
+                      }
+                      disabled={
+                        balanceUpdating ===
+                        balance.leave_type
+                      }
+                    >
+                      {balanceUpdating ===
+                      balance.leave_type
+                        ? "Updating..."
+                        : "Update Balance"}
+                    </button>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBalanceEmployee(null)
+                  }
+                >
+                  Close
+                </button>
+              </>
+            )}
+          </section>
+        )}
+
+        <section>
+          <h2>Employees</h2>
+
+          <div>
+            <input
+              type="text"
+              placeholder="Search name, employee number, or email..."
+              value={searchInput}
+              onChange={(event) =>
+                setSearchInput(event.target.value)
+              }
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  handleSearch();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleSearch}
+            >
+              Search
+            </button>
+
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value)
+              }
+            >
+              <option value="">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="resigned">Resigned</option>
+              <option value="terminated">Terminated</option>
+            </select>
+            
+            <input
+              type="text"
+              placeholder="Department"
+              value={departmentFilter}
+              onChange={(event) =>
+                setDepartmentFilter(event.target.value)
+              }
+            />
+
+            <button
+              type="button"
+              onClick={handleClearFilters}
+            >
+              Clear Filters
+            </button>
+            
+          </div>
+
+          <p>
+            Showing {employees.length} of {totalEmployees} employees
+          </p>
+
+          {employees.length === 0 ? (
+            <p>No employees found.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Employee #</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Department</th>
+                  <th>Position</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {employees.map((employee) => (
+                  <tr key={employee.id}>
+                    <td>{employee.employee_number}</td>
+
+                    <td>
+                      {employee.first_name}{" "}
+                      {employee.last_name}
+                    </td>
+
+                    <td>{employee.email}</td>
+
+                    <td>{employee.department}</td>
+
+                    <td>{employee.position}</td>
+
+                    <td>{employee.status}</td>
+
+                    <td>
+                      <button
+                        onClick={() =>
+                          handleEditClick(employee)
+                        }
+                      >
+                        Edit
+                      </button>
+
+                      {employee.status === "active" && (
+                        <button
+                          onClick={() =>
+                            handleDeactivate(employee)
+                          }
+                        >
+                          Deactivate
+                        </button>
+                      )}
+
+                      {employee.status === "active" && (
+                        <button
+                          onClick={() =>
+                            handleAccountClick(employee)
+                          }
+                        >
+                          Create Account
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() =>
+                          handleBalanceClick(employee)
+                        }
+                      >
+                        Leave Balances
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div>
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((current) => current - 1)}
+            >
+              Previous
+            </button>
+
+            <span>
+              {" "}
+              Page {page} of {totalPages}{" "}
+            </span>
+
+            <button
+              type="button"
+              disabled={page >= totalPages}
+              onClick={() => setPage((current) => current + 1)}
+            >
+              Next
+            </button>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+export default Employees;

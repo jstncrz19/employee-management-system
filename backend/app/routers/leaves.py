@@ -106,6 +106,8 @@ def create_leave(
         entity_id=new_leave.id,
         details=(
             f"Submitted {new_leave.leave_type} leave "
+            f"for {employee.first_name} {employee.last_name} "
+            f"(Employee #{employee.employee_number}) "
             f"from {new_leave.start_date} to {new_leave.end_date}"
         )
     )
@@ -313,6 +315,50 @@ def get_my_leave_balance(
         for balance in balances
     ]
 
+# GET EMPLOYEE LEAVE BALANCE (Admin)
+@router.get(
+    "/balance/{employee_id}",
+    response_model=list[LeaveBalanceResponse]
+)
+def get_employee_leave_balance(
+    employee_id: int,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    employee = db.scalar(
+        select(Employee).where(
+            Employee.id == employee_id
+        )
+    )
+
+    if employee is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Employee not found"
+        )
+
+    balances = db.scalars(
+        select(LeaveBalance)
+        .where(
+            LeaveBalance.employee_id == employee_id
+        )
+        .order_by(LeaveBalance.leave_type)
+    ).all()
+
+    return [
+        {
+            "id": balance.id,
+            "employee_id": balance.employee_id,
+            "leave_type": balance.leave_type,
+            "total_days": balance.total_days,
+            "used_days": balance.used_days,
+            "remaining_days": (
+                balance.total_days - balance.used_days
+            )
+        }
+        for balance in balances
+    ]
+
 # UPDATE BALANCE (Admin)
 @router.patch(
     "/balance/{employee_id}/{leave_type}",
@@ -368,9 +414,10 @@ def update_leave_balance(
         entity_type="leave_balance",
         entity_id=balance.id,
         details=(
-            f"Updated {leave_type.value} leave balance for "
-            f"employee {employee_id}: "
-            f"total_days set to {balance.total_days}"
+            f"Updated {leave_type.value} leave balance "
+            f"for {employee.first_name} {employee.last_name} "
+            f"(Employee #{employee.employee_number}): "
+            f"total days set to {balance.total_days}"
         )
     )
 
@@ -472,6 +519,8 @@ def cancel_leave(
         entity_id=leave.id,
         details=(
             f"Cancelled {leave.leave_type} leave "
+            f"for {employee.first_name} {employee.last_name} "
+            f"(Employee #{employee.employee_number}) "
             f"from {leave.start_date} to {leave.end_date}"
         )
     )
@@ -507,6 +556,18 @@ def approve_leave(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only pending leave requests can be approved"
+        )
+
+    employee = db.scalar(
+        select(Employee).where(
+            Employee.id == leave.employee_id
+        )
+    )
+
+    if employee is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Employee not found"
         )
 
     balance = db.scalar(
@@ -553,7 +614,8 @@ def approve_leave(
         entity_id=leave.id,
         details=(
             f"Approved {leave.leave_type} leave "
-            f"for employee {leave.employee_id} "
+            f"for {employee.first_name} {employee.last_name} "
+            f"(Employee #{employee.employee_number}) "
             f"from {leave.start_date} to {leave.end_date} "
             f"({requested_days} days)"
         )
@@ -592,6 +654,18 @@ def reject_leave(
             detail="Only pending leave requests can be rejected"
         )
 
+    employee = db.scalar(
+        select(Employee).where(
+            Employee.id == leave.employee_id
+        )
+    )
+
+    if employee is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Employee not found"
+        )
+
     leave.status = LeaveStatus.REJECTED
     leave.updated_at = now()
 
@@ -603,7 +677,8 @@ def reject_leave(
         entity_id=leave.id,
         details=(
             f"Rejected {leave.leave_type} leave "
-            f"for employee {leave.employee_id} "
+            f"for {employee.first_name} {employee.last_name} "
+            f"(Employee #{employee.employee_number}) "
             f"from {leave.start_date} to {leave.end_date}"
         )
     )

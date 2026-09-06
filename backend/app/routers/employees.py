@@ -14,6 +14,7 @@ from app.core.audit import create_audit_log
 
 from app.models.employee import Employee
 from app.models.user import User
+from app.models.leave_balance import LeaveBalance
 from app.schemas.employee import (
     EmployeeCreate,
     EmployeeResponse,
@@ -73,6 +74,35 @@ def create_employee(
     db.add(new_employee)
     db.flush()
 
+    default_balances = [
+        LeaveBalance(
+            employee_id=new_employee.id,
+            leave_type="vacation",
+            total_days=15,
+            used_days=0,
+        ),
+        LeaveBalance(
+            employee_id=new_employee.id,
+            leave_type="sick",
+            total_days=15,
+            used_days=0,
+        ),
+        LeaveBalance(
+            employee_id=new_employee.id,
+            leave_type="emergency",
+            total_days=5,
+            used_days=0,
+        ),
+        LeaveBalance(
+            employee_id=new_employee.id,
+            leave_type="other",
+            total_days=0,
+            used_days=0,
+        ),
+    ]
+
+    db.add_all(default_balances)
+
     create_audit_log(
         db=db,
         user_id=current_user.id,
@@ -82,7 +112,7 @@ def create_employee(
         details=(
             f"Created employee {new_employee.first_name} "
             f"{new_employee.last_name} "
-            f"(employee number {new_employee.employee_number})"
+            f"(Employee #{new_employee.employee_number})"
         )
     )
 
@@ -158,7 +188,8 @@ def create_employee_account(
         entity_id=new_user.id,
         details=(
             f"Created employee account for "
-            f"{employee.first_name} {employee.last_name}"
+            f"{employee.first_name} {employee.last_name} "
+            f"(Employee #{employee.employee_number})"
         )
     )
 
@@ -410,7 +441,8 @@ def update_employee(
         entity_id=employee.id,
         details=(
             f"Updated employee {employee.first_name} "
-            f"{employee.last_name}"
+            f"{employee.last_name} "
+            f"(Employee #{employee.employee_number})"
         )
     )
 
@@ -469,7 +501,8 @@ def patch_employee(
         entity_id=employee.id,
         details=(
             f"Updated employee {employee.first_name} "
-            f"{employee.last_name}: "
+            f"{employee.last_name} "
+            f"(Employee #{employee.employee_number}): "
             f"{', '.join(update_data.keys())}"
         )
     )
@@ -515,7 +548,8 @@ def delete_employee(
         entity_id=employee.id,
         details=(
             f"Deactivated employee {employee.first_name} "
-            f"{employee.last_name}"
+            f"{employee.last_name} "
+            f"(Employee #{employee.employee_number})"
         )
     )
 
