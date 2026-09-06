@@ -32,7 +32,12 @@ router = APIRouter(
 # SUMMARY DASHBOARD (Admin)
 @router.get(
     "/summary",
-    response_model=DashboardSummaryResponse
+    response_model=DashboardSummaryResponse,
+    summary="Get admin dashboard summary",
+    description=(
+        "Admin only. Aggregate counts for today: total and active employees, "
+        "present, absent, on approved leave, and pending leave requests."
+    )
 )
 def get_dashboard_summary(
     current_user: User = Depends(require_admin),
@@ -106,7 +111,12 @@ def get_dashboard_summary(
 # DASHBOARD (EMPLOYEE)
 @router.get(
     "/me",
-    response_model=EmployeeDashboardResponse
+    response_model=EmployeeDashboardResponse,
+    summary="Get employee dashboard data",
+    description=(
+        "Employee only. Today's attendance status, leave balances, pending and "
+        "upcoming approved leaves, and the five most recent attendance records."
+    )
 )
 def get_employee_dashboard(
     current_employee: Employee = Depends(get_current_employee_user),

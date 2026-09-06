@@ -200,6 +200,8 @@ All routers are tagged, so the full interactive documentation is generated autom
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 
+Click **Authorize** in Swagger UI and paste the `access_token` from `POST /auth/login` (used as a bearer token), or send `Authorization: Bearer <token>` on any protected endpoint. Unauthenticated requests return `401`; an employee calling an admin-only endpoint (or an admin using an employee-only endpoint) returns `403`. Each endpoint's role requirement and real response codes are documented inline, so the interactive docs are the source of truth.
+
 ### Endpoint summary
 
 | Method | Path | Access | Purpose |

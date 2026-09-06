@@ -41,7 +41,15 @@ router = APIRouter(
 @router.post(
     "",
     response_model=EmployeeResponse,
-    status_code=http_status.HTTP_201_CREATED
+    status_code=http_status.HTTP_201_CREATED,
+    summary="Create employee",
+    description=(
+        "Admin only. Creates an employee profile and default leave balances "
+        "(vacation 15, sick 15, emergency 5, other 0 days)."
+    ),
+    responses={
+        409: {"description": "Employee number or email already exists"}
+    }
 )
 def create_employee(
     employee_data: EmployeeCreate,
@@ -134,7 +142,17 @@ def create_employee(
 @router.post(
     "/{employee_id}/account",
     response_model=UserResponse,
-    status_code=http_status.HTTP_201_CREATED
+    status_code=http_status.HTTP_201_CREATED,
+    summary="Provision employee user account",
+    description=(
+        "Admin only. Creates a login account (email and password) for an "
+        "employee that does not have one yet. The employee must be active."
+    ),
+    responses={
+        400: {"description": "Cannot create an account for an inactive employee"},
+        404: {"description": "Employee not found"},
+        409: {"description": "Employee already has an account, or email already registered"}
+    }
 )
 def create_employee_account(
     employee_id: int,
@@ -210,7 +228,16 @@ def create_employee_account(
 # GET EMPLOYEES
 @router.get(
     "",
-    response_model=EmployeeListResponse
+    response_model=EmployeeListResponse,
+    summary="List employees",
+    description=(
+        "Admin only. Paginated employee list with optional filters: `status`, "
+        "`department`, and `search` (employee number, name, email). Sortable "
+        "via `sort_by` and `sort_order`, paginated via `page` and `limit`."
+    ),
+    responses={
+        400: {"description": "Invalid sort field or sort order"}
+    }
 )
 def get_employees(
     status: Optional[EmployeeStatus] = None,
@@ -318,7 +345,12 @@ def get_employees(
 # GET ME
 @router.get(
     "/me",
-    response_model=EmployeeResponse
+    response_model=EmployeeResponse,
+    summary="Get my employee profile",
+    description=(
+        "Returns the authenticated user's own employee profile. "
+        "Requires an active linked employee profile."
+    )
 )
 def get_my_employee(
     current_employee: Employee = Depends(get_current_employee)
@@ -328,7 +360,15 @@ def get_my_employee(
 # PATCH SELF DETAILS
 @router.patch(
     "/me",
-    response_model=EmployeeResponse
+    response_model=EmployeeResponse,
+    summary="Update my employee profile",
+    description=(
+        "Partially updates updatable fields (including email) of the "
+        "authenticated user's own employee profile."
+    ),
+    responses={
+        409: {"description": "Email already in use by another employee"}
+    }
 )
 def update_my_employee(
     employee_data: EmployeeSelfUpdate,
@@ -372,7 +412,16 @@ def update_my_employee(
 # GET EMPLOYEE (SPECIFIC)
 @router.get(
     "/{employee_id}",
-    response_model=EmployeeResponse
+    response_model=EmployeeResponse,
+    summary="Get employee",
+    description=(
+        "Admins can fetch any employee. Employee users can only fetch their "
+        "own active profile; any other access returns 403."
+    ),
+    responses={
+        403: {"description": "Not authorized to view this profile, or profile inactive"},
+        404: {"description": "Employee not found"}
+    }
 )
 def get_employee(
     employee_id: int,
@@ -407,7 +456,13 @@ def get_employee(
 # UPDATE EMPLOYEE
 @router.put(
     "/{employee_id}",
-    response_model=EmployeeResponse
+    response_model=EmployeeResponse,
+    summary="Update employee",
+    description="Admin only. Replaces all editable employee fields.",
+    responses={
+        404: {"description": "Employee not found"},
+        409: {"description": "Employee number or email already in use"}
+    }
 )
 def update_employee(
     employee_id: int,
@@ -479,7 +534,13 @@ def update_employee(
 # PARTIAL UPDATE EMPLOYEE
 @router.patch(
     "/{employee_id}",
-    response_model=EmployeeResponse
+    response_model=EmployeeResponse,
+    summary="Partially update employee",
+    description="Admin only. Updates only the provided employee fields.",
+    responses={
+        404: {"description": "Employee not found"},
+        409: {"description": "Employee email already in use"}
+    }
 )
 def patch_employee(
     employee_id: int,
@@ -548,7 +609,16 @@ def patch_employee(
 # DELETE EMPLOYEE (Update status to 'inactive')
 @router.delete(
     "/{employee_id}",
-    response_model=EmployeeResponse
+    response_model=EmployeeResponse,
+    summary="Deactivate employee",
+    description=(
+        "Admin only. Marks the employee as `inactive` (soft delete) so they "
+        "can no longer log in or use self-service features."
+    ),
+    responses={
+        400: {"description": "Employee is already inactive"},
+        404: {"description": "Employee not found"}
+    }
 )
 def delete_employee(
     employee_id: int,

@@ -12,10 +12,21 @@ from app.routers.dashboard import router as dashboard_router
 from app.routers.audit import router as audit_router
 
 app = FastAPI(
-    title="Employee Management System API",
+    title="Employee Leave & Attendance Management System API",
     description=(
-        "REST API for employee management, attendance, "
-        "leave management, and audit logging."
+        "Backend API for the Employee Leave & Attendance Management System. "
+        "It covers JWT authentication with admin and employee roles, an "
+        "employee directory, daily check-in/check-out tracking, leave requests "
+        "with approval workflows and leave balance accounting, employee and "
+        "admin dashboards, and an audit trail of significant actions.\n\n"
+        "Interactive clients:\n"
+        "- Swagger UI: `/docs`\n"
+        "- ReDoc: `/redoc`\n\n"
+        "Protected endpoints require a JWT bearer token obtained from "
+        "`POST /auth/login` (OAuth2 password flow, `username` = email). "
+        "Use the Authorize button in the interactive docs to send it. "
+        "Unauthenticated requests return `401`; authenticated users calling "
+        "endpoints outside their role return `403`."
     ),
     version="1.0.0",
 )

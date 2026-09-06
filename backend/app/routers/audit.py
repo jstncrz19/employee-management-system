@@ -24,7 +24,16 @@ router = APIRouter(
 # GET AUDIT_LOGS
 @router.get(
     "",
-    response_model=AuditLogListResponse
+    response_model=AuditLogListResponse,
+    summary="Get audit logs",
+    description=(
+        "Admin only. Paginated audit trail with filters: `user_id`, `action`, "
+        "`entity_type`, and `start_date`/`end_date`. Sortable via `sort_by` "
+        "(`created_at` or `action`) and `sort_order`."
+    ),
+    responses={
+        400: {"description": "End date before start date"}
+    }
 )
 def get_audit_logs(
     user_id: int | None = None,

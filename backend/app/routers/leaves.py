@@ -40,7 +40,17 @@ router = APIRouter(
 @router.post(
     "",
     response_model=LeaveResponse,
-    status_code=status.HTTP_201_CREATED
+    status_code=status.HTTP_201_CREATED,
+    summary="Submit leave request",
+    description=(
+        "Creates a pending leave request for the current employee. Requests "
+        "that overlap an existing pending or approved request for the same "
+        "employee are rejected with 409."
+    ),
+    responses={
+        400: {"description": "End date before start date"},
+        409: {"description": "Dates overlap an existing leave request"}
+    }
 )
 def create_leave(
     leave_data: LeaveCreate,
@@ -117,7 +127,17 @@ def create_leave(
 # GET ALL LEAVE REQUEST (Admin)
 @router.get(
     "",
-    response_model=LeaveListResponse
+    response_model=LeaveListResponse,
+    summary="List leave requests",
+    description=(
+        "Admin only. Paginated leave list with filters: `status`, "
+        "`employee_id`, `leave_type`, `start_date`/`end_date`, and `search` "
+        "(employee number, name, email). Sortable via `sort_by` and "
+        "`sort_order`."
+    ),
+    responses={
+        400: {"description": "Invalid sort field/order or date range"}
+    }
 )
 def get_all_leaves(
     leave_status: Optional[LeaveStatus] = Query(
@@ -287,7 +307,11 @@ def get_all_leaves(
 # GET MY LEAVES
 @router.get(
     "/me",
-    response_model=list[LeaveResponse]
+    response_model=list[LeaveResponse],
+    summary="Get my leave requests",
+    description=(
+        "Returns the current employee's leave requests, newest start date first."
+    )
 )
 def get_my_leaves(
     current_employee: Employee = Depends(get_current_employee),
@@ -306,7 +330,12 @@ def get_my_leaves(
 # GET MY LEAVE BALANCE
 @router.get(
     "/balance/me",
-    response_model=list[LeaveBalanceResponse]
+    response_model=list[LeaveBalanceResponse],
+    summary="Get my leave balances",
+    description=(
+        "Returns the current employee's leave balances per leave type, "
+        "including computed `remaining_days`."
+    )
 )
 def get_my_leave_balance(
     current_employee: Employee = Depends(get_current_employee),
@@ -339,7 +368,14 @@ def get_my_leave_balance(
 # GET EMPLOYEE LEAVE BALANCE (Admin)
 @router.get(
     "/balance/{employee_id}",
-    response_model=list[LeaveBalanceResponse]
+    response_model=list[LeaveBalanceResponse],
+    summary="Get employee leave balances",
+    description=(
+        "Admin only. Leave balances per leave type for a specific employee."
+    ),
+    responses={
+        404: {"description": "Employee not found"}
+    }
 )
 def get_employee_leave_balance(
     employee_id: int,
@@ -383,7 +419,16 @@ def get_employee_leave_balance(
 # UPDATE BALANCE (Admin)
 @router.patch(
     "/balance/{employee_id}/{leave_type}",
-    response_model=LeaveBalanceResponse
+    response_model=LeaveBalanceResponse,
+    summary="Update leave balance",
+    description=(
+        "Admin only. Sets the `total_days` for an employee's leave type. "
+        "The new total cannot be lower than the days already used."
+    ),
+    responses={
+        400: {"description": "Total days cannot be lower than used days"},
+        404: {"description": "Employee or leave balance not found"}
+    }
 )
 def update_leave_balance(
     employee_id: int,
@@ -461,7 +506,17 @@ def update_leave_balance(
 # CANCEL LEAVE REQUEST
 @router.patch(
     "/{leave_id}/cancel",
-    response_model=LeaveResponse
+    response_model=LeaveResponse,
+    summary="Cancel leave request",
+    description=(
+        "Cancels one of the current employee's requests. Only pending or "
+        "approved requests can be cancelled; cancelling an approved request "
+        "restores the days deducted from the leave balance."
+    ),
+    responses={
+        400: {"description": "Request is not pending/approved, or balance is inconsistent"},
+        404: {"description": "Leave request or leave balance not found"}
+    }
 )
 def cancel_leave(
     leave_id: int,
@@ -544,7 +599,19 @@ def cancel_leave(
 # APPROVE LEAVE (Admin)
 @router.patch(
     "/{leave_id}/approve",
-    response_model=LeaveResponse
+    response_model=LeaveResponse,
+    summary="Approve leave request",
+    description=(
+        "Admin only. Approves a pending request and deducts the requested days "
+        "from the employee's leave balance. Rejected when the employee is "
+        "inactive, the request overlaps an existing attendance record, or the "
+        "balance is insufficient."
+    ),
+    responses={
+        400: {"description": "Request is not pending, employee inactive, or insufficient balance"},
+        404: {"description": "Leave request, employee, or leave balance not found"},
+        409: {"description": "Request overlaps an attendance record"}
+    }
 )
 def approve_leave(
     leave_id: int,
@@ -662,7 +729,15 @@ def approve_leave(
 # REJECT LEAVE (Admin)
 @router.patch(
     "/{leave_id}/reject",
-    response_model=LeaveResponse
+    response_model=LeaveResponse,
+    summary="Reject leave request",
+    description=(
+        "Admin only. Rejects a pending request without changing the leave balance."
+    ),
+    responses={
+        400: {"description": "Request is not pending"},
+        404: {"description": "Leave request or employee not found"}
+    }
 )
 def reject_leave(
     leave_id: int,

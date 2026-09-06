@@ -24,7 +24,17 @@ router = APIRouter(
 @router.post(
     "/register",
     response_model=UserResponse,
-    status_code=status.HTTP_201_CREATED
+    status_code=status.HTTP_201_CREATED,
+    summary="Register employee account",
+    description=(
+        "Creates a self-service account with role `employee`, a linked "
+        "employee profile, and default leave balances (vacation 15, sick 15, "
+        "emergency 5, other 0 days) in one transaction. "
+        "Registration never creates an admin account."
+    ),
+    responses={
+        409: {"description": "Email already registered, or employee number/email already in use"}
+    }
 )
 def register(
     user_data: UserRegister,
@@ -136,7 +146,19 @@ def register(
 
 @router.post(
     "/login",
-    response_model=Token
+    response_model=Token,
+    summary="Login user",
+    description=(
+        "Authenticates with email and password (OAuth2 password form: "
+        "`username` = email, `password` = password) and returns a JWT bearer "
+        "token. Send it as `Authorization: Bearer <token>`. "
+        "Employee accounts must have an active employee profile; admin "
+        "accounts do not require one."
+    ),
+    responses={
+        401: {"description": "Invalid email or password"},
+        403: {"description": "Employee profile missing or inactive"}
+    }
 )
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),

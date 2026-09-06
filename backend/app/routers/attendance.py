@@ -33,7 +33,16 @@ router = APIRouter(
 @router.post(
     "/check-in",
     response_model=AttendanceResponse,
-    status_code=status.HTTP_201_CREATED
+    status_code=status.HTTP_201_CREATED,
+    summary="Check in",
+    description=(
+        "Employee only. Records today's attendance with status `present`. "
+        "Blocked with 400 while on approved leave or if already checked in today."
+    ),
+    responses={
+        400: {"description": "On approved leave today, or already checked in"},
+        409: {"description": "Already checked in today (concurrent request)"}
+    }
 )
 def check_in(
     current_employee: Employee = Depends(get_current_employee_user),
@@ -110,7 +119,15 @@ def check_in(
 # FOR CHECK-OUT
 @router.post(
     "/check-out",
-    response_model=AttendanceResponse
+    response_model=AttendanceResponse,
+    summary="Check out",
+    description=(
+        "Employee only. Records today's check-out time. Requires a check-in "
+        "earlier today and is blocked while on approved leave."
+    ),
+    responses={
+        400: {"description": "Not checked in, already checked out, or on approved leave"}
+    }
 )
 def check_out(
     current_employee: Employee = Depends(get_current_employee_user),
@@ -177,7 +194,16 @@ def check_out(
 # GET ALL ATTENDANCE (Admin)
 @router.get(
     "",
-    response_model=AttendanceListResponse
+    response_model=AttendanceListResponse,
+    summary="Get attendance records",
+    description=(
+        "Admin only. Paginated attendance list with filters: `employee_id`, "
+        "`date`, `start_date`/`end_date`, and `search` (employee number, name, "
+        "email)."
+    ),
+    responses={
+        400: {"description": "End date before start date"}
+    }
 )
 def get_all_attendance(
     employee_id: Optional[int] = None,
@@ -288,7 +314,12 @@ def get_all_attendance(
 # GET RECORDS
 @router.get(
     "/me",
-    response_model=list[AttendanceResponse]
+    response_model=list[AttendanceResponse],
+    summary="Get my attendance history",
+    description=(
+        "Employee only. Attendance history for the current employee, "
+        "newest first."
+    )
 )
 def get_my_attendance(
     current_employee: Employee = Depends(get_current_employee_user),

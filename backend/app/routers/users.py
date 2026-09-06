@@ -11,7 +11,15 @@ router = APIRouter(
 
 @router.get(
     "/me",
-    response_model=UserResponse
+    response_model=UserResponse,
+    summary="Get current user",
+    description=(
+        "Returns the authenticated account (id, email, role). "
+        "Requires a valid JWT bearer token."
+    ),
+    responses={
+        401: {"description": "Missing or invalid token"}
+    }
 )
 def get_me(
     current_user: User = Depends(get_current_user)
