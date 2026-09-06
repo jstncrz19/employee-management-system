@@ -21,7 +21,7 @@ router = APIRouter(
     tags=["Audit Logs"]
 )
 
-# GET AUDIT_LOGS
+# GET AUDIT LOGS
 @router.get(
     "",
     response_model=AuditLogListResponse,

@@ -251,7 +251,6 @@ def get_employees(
     db: Session = Depends(get_db)
 ):
 
-    # Sorting Fields and Validation
     sort_fields = {
         "id": Employee.id,
         "employee_number": Employee.employee_number,
@@ -275,7 +274,6 @@ def get_employees(
             detail="sort_order must be 'asc' or 'desc'"
         )
 
-    # Main Query
     query = select(Employee)
 
     if status:
@@ -294,7 +292,6 @@ def get_employees(
             | Employee.email.ilike(search_term)
         )
 
-    # Get total number of employees matching the filters
     count_query = select(func.count()).select_from(Employee)
 
     if status:
@@ -315,7 +312,6 @@ def get_employees(
     
     total = db.scalar(count_query) or 0
 
-    # Sort
     sort_column = sort_fields[sort_by]
 
     if sort_order == "desc":
@@ -323,11 +319,9 @@ def get_employees(
     else:
         query = query.order_by(sort_column.asc())
 
-    # Calculate pagination
     offset = (page - 1) * limit
     pages = math.ceil(total / limit) if total > 0 else 0
 
-    # Get employees for the requested page
     employees = db.scalars(
         query
         .offset(offset)
@@ -342,7 +336,7 @@ def get_employees(
         "pages": pages
     }
 
-# GET ME
+# GET MY EMPLOYEE
 @router.get(
     "/me",
     response_model=EmployeeResponse,
@@ -357,7 +351,7 @@ def get_my_employee(
 ):
     return current_employee
 
-# PATCH SELF DETAILS
+# UPDATE MY EMPLOYEE
 @router.patch(
     "/me",
     response_model=EmployeeResponse,
@@ -606,7 +600,7 @@ def patch_employee(
 
     return employee
 
-# DELETE EMPLOYEE (Update status to 'inactive')
+# DEACTIVATE EMPLOYEE
 @router.delete(
     "/{employee_id}",
     response_model=EmployeeResponse,

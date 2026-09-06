@@ -64,9 +64,7 @@ def register(
         )
 
     try:
-        # Register creates the user account, the employee profile, and the
-        # default leave balances atomically so self-registered accounts are
-        # immediately usable (login + self-service features).
+        # Create the account, profile, and default balances atomically.
         new_user = User(
             email=user_data.email,
             password_hash=hash_password(user_data.password),

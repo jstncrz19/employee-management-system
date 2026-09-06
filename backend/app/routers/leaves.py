@@ -57,8 +57,7 @@ def create_leave(
     current_employee: Employee = Depends(get_current_employee),
     db: Session = Depends(get_db)
 ):
-    # Serialize leave submissions for one employee. This keeps the application
-    # overlap check reliable when two requests arrive at nearly the same time.
+    # Lock the employee row so concurrent submissions can't race the overlap check.
     employee = db.scalar(
         select(Employee)
         .where(Employee.id == current_employee.id)
@@ -124,7 +123,7 @@ def create_leave(
 
     return new_leave
 
-# GET ALL LEAVE REQUEST (Admin)
+# GET ALL LEAVE REQUESTS (Admin)
 @router.get(
     "",
     response_model=LeaveListResponse,

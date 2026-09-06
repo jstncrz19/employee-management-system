@@ -29,7 +29,7 @@ router = APIRouter(
     tags=["Dashboard"]
 )
 
-# SUMMARY DASHBOARD (Admin)
+# DASHBOARD SUMMARY (Admin)
 @router.get(
     "/summary",
     response_model=DashboardSummaryResponse,
@@ -108,7 +108,7 @@ def get_dashboard_summary(
         "pending_leave_requests": pending_leave_requests
     }
 
-# DASHBOARD (EMPLOYEE)
+# EMPLOYEE DASHBOARD
 @router.get(
     "/me",
     response_model=EmployeeDashboardResponse,

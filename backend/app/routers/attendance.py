@@ -29,7 +29,7 @@ router = APIRouter(
     tags=["Attendance"]
 )
 
-# FOR CHECK-IN
+# CHECK IN
 @router.post(
     "/check-in",
     response_model=AttendanceResponse,
@@ -116,7 +116,7 @@ def check_in(
 
     return attendance
 
-# FOR CHECK-OUT
+# CHECK OUT
 @router.post(
     "/check-out",
     response_model=AttendanceResponse,
@@ -311,7 +311,7 @@ def get_all_attendance(
         "pages": pages
     }
 
-# GET RECORDS
+# GET MY ATTENDANCE
 @router.get(
     "/me",
     response_model=list[AttendanceResponse],

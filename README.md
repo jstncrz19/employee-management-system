@@ -84,7 +84,7 @@ The backend is a FastAPI REST API backed by PostgreSQL. The frontend is a React 
 ### Infrastructure
 
 - Docker / Docker Compose
-- GitHub Actions (backend CI)
+- GitHub Actions (Backend CI + Frontend CI)
 
 ## Architecture
 
@@ -258,14 +258,17 @@ employee-management-system/
 ├── frontend/
 │   ├── public/
 │   ├── src/
-│   │   ├── components/    # Navbar, ProtectedRoute
+│   │   ├── components/    # shared UI (Navbar, guards, states, badges)
 │   │   ├── context/       # auth state
 │   │   ├── hooks/         # useAuth
 │   │   ├── pages/         # Login, dashboards, tables, forms
-│   │   └── services/      # API client, auth helpers
+│   │   ├── services/      # API client, token helpers
+│   │   └── utils/         # error message helpers
 │   ├── index.html
 │   └── package.json
+├── .github/workflows/     # CI pipelines
 ├── docker-compose.yml
+├── LICENSE
 └── README.md
 ```
 
