@@ -4,6 +4,11 @@ A full-stack employee management system for tracking employees, attendance, leav
 
 The backend is a FastAPI REST API backed by PostgreSQL. The frontend is a React (Vite) single-page application.
 
+## CI
+
+[![Backend CI](https://github.com/jstncrz19/employee-management-system/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/jstncrz19/employee-management-system/actions/workflows/backend-ci.yml)
+[![Frontend CI](https://github.com/jstncrz19/employee-management-system/actions/workflows/frontend-ci.yml/badge.svg)](https://github.com/jstncrz19/employee-management-system/actions/workflows/frontend-ci.yml)
+
 ## Features
 
 ### Authentication & Roles

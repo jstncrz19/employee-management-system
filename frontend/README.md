@@ -21,7 +21,7 @@ The frontend is a single-page application built with **React** and **Vite**. It 
 
 ## Getting Started
 
-Requires Node.js (18+).
+Requires Node.js 20.19+ (Node.js 22 LTS is recommended and used by CI).
 
 ```bash
 cd frontend
