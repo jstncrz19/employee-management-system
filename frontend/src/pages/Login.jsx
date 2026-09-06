@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 
@@ -7,11 +7,28 @@ import api from "../services/api";
 function Login() {
     const navigate = useNavigate();
 
-    const { login } = useAuth();
+    const { user, loading, login } = useAuth();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+
+    useEffect(() => {
+        if (!loading && user) {
+            navigate(
+                user.role === "admin" ? "/admin" : "/dashboard",
+                { replace: true }
+            );
+        }
+    }, [user, loading, navigate]);
+
+    if (loading) {
+        return (
+            <main className="page-container">
+                <p>Checking your session...</p>
+            </main>
+        );
+    }
 
     const handleSubmit = async (event) => {
         event.preventDefault();
