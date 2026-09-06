@@ -1454,6 +1454,275 @@ def test_duplicate_attendance_same_employee_and_date_rejected(
 
     assert duplicate.id is None
 
+
+# ---------------------------------------------------------
+# EMPLOYEE LIST: FILTERS, SEARCH, SORT, PAGINATION
+# ---------------------------------------------------------
+
+def make_employee(client, token, employee_number, **overrides):
+    payload = {
+        "employee_number": employee_number,
+        "first_name": "List",
+        "last_name": "Employee",
+        "email": f"list.{employee_number}@test.com",
+        "department": "IT",
+        "position": "Developer",
+        "date_hired": "2026-08-24",
+        "status": "active"
+    }
+    payload.update(overrides)
+
+    response = client.post(
+        "/employees",
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload
+    )
+
+    assert response.status_code == 201
+
+    return response.json()
+
+
+def test_filter_employees_by_status(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    make_employee(client, token, 30001, first_name="Active", status="active")
+    make_employee(client, token, 30002, first_name="Inactive", status="inactive")
+
+    response = client.get(
+        "/employees?status=inactive",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert data["items"][0]["status"] == "inactive"
+
+
+def test_filter_employees_by_department(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    make_employee(client, token, 30003, department="Engineering")
+    make_employee(client, token, 30004, department="Marketing")
+
+    response = client.get(
+        "/employees?department=Marketing",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert data["items"][0]["department"] == "Marketing"
+
+
+def test_search_employees_by_last_name(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    make_employee(client, token, 30005, first_name="Searchable", last_name="Target")
+    make_employee(client, token, 30006, first_name="Other", last_name="Person")
+
+    response = client.get(
+        "/employees?search=Target",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert data["items"][0]["last_name"] == "Target"
+
+
+def test_search_employees_by_employee_number(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    make_employee(client, token, 30007)
+    make_employee(client, token, 30008)
+
+    response = client.get(
+        "/employees?search=30008",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert data["items"][0]["employee_number"] == 30008
+
+
+def test_sort_employees_by_first_name(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    make_employee(client, token, 30009, first_name="Alpha", last_name="Sorted")
+    make_employee(client, token, 30010, first_name="Beta", last_name="Sorted")
+
+    asc_response = client.get(
+        "/employees?sort_by=first_name&sort_order=asc",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert asc_response.status_code == 200
+
+    asc_items = asc_response.json()["items"]
+
+    assert [item["first_name"] for item in asc_items] == ["Alpha", "Beta"]
+
+    desc_response = client.get(
+        "/employees?sort_by=first_name&sort_order=desc",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert desc_response.status_code == 200
+
+    desc_items = desc_response.json()["items"]
+
+    assert [item["first_name"] for item in desc_items] == ["Beta", "Alpha"]
+
+
+def test_invalid_sort_field_employees(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    response = client.get(
+        "/employees?sort_by=invalid",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid sort field: invalid"
+
+
+def test_invalid_sort_order_employees(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    response = client.get(
+        "/employees?sort_by=id&sort_order=invalid",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "sort_order must be 'asc' or 'desc'"
+    )
+
+
+def test_employee_list_pagination(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    for number in range(30011, 30014):
+        make_employee(client, token, number)
+
+    first_page = client.get(
+        "/employees?page=1&limit=2",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert first_page.status_code == 200
+
+    first_data = first_page.json()
+
+    assert first_data["total"] == 3
+    assert len(first_data["items"]) == 2
+    assert first_data["page"] == 1
+    assert first_data["limit"] == 2
+    assert first_data["pages"] == 2
+
+    second_page = client.get(
+        "/employees?page=2&limit=2",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert second_page.status_code == 200
+    assert len(second_page.json()["items"]) == 1
+
+
+def test_employee_list_page_beyond_last(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    make_employee(client, token, 30014)
+
+    response = client.get(
+        "/employees?page=5&limit=10",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["items"] == []
+    assert data["total"] == 1
+    assert data["page"] == 5
+
+
+def test_employee_list_invalid_page(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    response = client.get(
+        "/employees?page=0",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 422
+
+
+def test_employee_list_invalid_limit(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    response = client.get(
+        "/employees?limit=101",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 422
+
+
+def test_employee_list_unauthenticated(client):
+    response = client.get("/employees")
+
+    assert response.status_code == 401
+
+
+def test_employee_cannot_list_employees(client, db_session):
+    employee_user = User(
+        email="list.employee@test.com",
+        password_hash=hash_password("testpassword123"),
+        role="employee"
+    )
+
+    db_session.add(employee_user)
+    db_session.commit()
+    db_session.refresh(employee_user)
+
+    response = client.get(
+        "/employees",
+        headers={
+            "Authorization": f"Bearer {create_access_token(employee_user.id)}"
+        }
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Admin access required"
+
 def test_duplicate_leave_balance_type_rejected(
     db_session
 ):

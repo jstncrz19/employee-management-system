@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from app.core.time import now
 
 from app.core.security import create_access_token, hash_password
@@ -558,4 +558,177 @@ def test_attendance_audit_logs(client, db_session):
         assert log.user_id == user.id
         assert log.entity_type == "attendance"
         assert log.entity_id == check_in_response.json()["id"]
+
+
+def test_admin_filter_attendance_by_date_range(client, db_session):
+    admin = create_admin(db_session)
+    user, employee = create_employee(db_session)
+
+    today = now().date()
+
+    db_session.add_all([
+        Attendance(
+            employee_id=employee.id,
+            date=today - timedelta(days=3),
+            time_in=time(8, 0),
+            status="present"
+        ),
+        Attendance(
+            employee_id=employee.id,
+            date=today - timedelta(days=1),
+            time_in=time(8, 0),
+            status="present"
+        ),
+        Attendance(
+            employee_id=employee.id,
+            date=today,
+            time_in=time(8, 0),
+            status="present"
+        )
+    ])
+
+    db_session.commit()
+
+    token = create_access_token(admin.id)
+
+    response = client.get(
+        "/attendance"
+        f"?start_date={(today - timedelta(days=3)).isoformat()}"
+        f"&end_date={(today - timedelta(days=2)).isoformat()}",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert data["items"][0]["date"] == (
+        today - timedelta(days=3)
+    ).isoformat()
+
+
+def test_admin_attendance_invalid_date_range(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    response = client.get(
+        "/attendance?start_date=2026-09-10&end_date=2026-09-01",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "End date cannot be before start date"
+
+
+def test_admin_attendance_search(client, db_session):
+    admin = create_admin(db_session)
+    user, employee = create_employee(db_session)
+
+    db_session.add(
+        Attendance(
+            employee_id=employee.id,
+            date=now().date(),
+            time_in=time(8, 0),
+            status="present"
+        )
+    )
+    db_session.commit()
+
+    token = create_access_token(admin.id)
+
+    response = client.get(
+        "/attendance?search=Test",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert data["items"][0]["employee_name"] == "Test Employee"
+
+
+def test_admin_attendance_search_by_number(client, db_session):
+    admin = create_admin(db_session)
+    user, employee = create_employee(db_session)
+
+    db_session.add(
+        Attendance(
+            employee_id=employee.id,
+            date=now().date(),
+            time_in=time(8, 0),
+            status="present"
+        )
+    )
+    db_session.commit()
+
+    token = create_access_token(admin.id)
+
+    response = client.get(
+        "/attendance?search=10001",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert data["items"][0]["employee_number"] == 10001
+
+
+def test_admin_attendance_page_beyond_last(client, db_session):
+    admin = create_admin(db_session)
+    user, employee = create_employee(db_session)
+
+    db_session.add(
+        Attendance(
+            employee_id=employee.id,
+            date=now().date(),
+            time_in=time(8, 0),
+            status="present"
+        )
+    )
+    db_session.commit()
+
+    token = create_access_token(admin.id)
+
+    response = client.get(
+        "/attendance?page=5&limit=10",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["items"] == []
+    assert data["total"] == 1
+    assert data["page"] == 5
+
+
+def test_admin_attendance_invalid_page(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    response = client.get(
+        "/attendance?page=0",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 422
+
+
+def test_admin_attendance_unauthenticated(client):
+    response = client.get("/attendance")
+
+    assert response.status_code == 401
+
+
+def test_check_in_unauthenticated(client):
+    response = client.post("/attendance/check-in")
+
+    assert response.status_code == 401
 

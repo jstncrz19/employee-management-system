@@ -1669,3 +1669,329 @@ def test_reject_leave_creates_audit_log_without_changing_balance(
 
     assert audit_log is not None
     assert audit_log.user_id == admin.id
+
+
+# ---------------------------------------------------------
+# EMPLOYEE LEAVE BALANCE (ADMIN)
+# ---------------------------------------------------------
+
+def test_admin_get_employee_leave_balance(client, db_session):
+    admin = create_admin(db_session)
+    user, employee = create_employee(db_session)
+
+    create_balance(
+        db_session,
+        employee.id,
+        "vacation",
+        total_days=20,
+        used_days=5
+    )
+
+    create_balance(
+        db_session,
+        employee.id,
+        "sick",
+        total_days=10,
+        used_days=2
+    )
+
+    response = client.get(
+        f"/leaves/balance/{employee.id}",
+        headers={
+            "Authorization": f"Bearer {admin_token(admin)}"
+        }
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 2
+
+    balances = {
+        item["leave_type"]: item
+        for item in data
+    }
+
+    assert balances["vacation"]["total_days"] == 20
+    assert balances["vacation"]["used_days"] == 5
+    assert balances["vacation"]["remaining_days"] == 15
+
+    assert balances["sick"]["total_days"] == 10
+    assert balances["sick"]["used_days"] == 2
+    assert balances["sick"]["remaining_days"] == 8
+
+
+def test_get_employee_leave_balance_missing_employee(client, db_session):
+    admin = create_admin(db_session)
+
+    response = client.get(
+        "/leaves/balance/999999",
+        headers={
+            "Authorization": f"Bearer {admin_token(admin)}"
+        }
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Employee not found"
+
+
+def test_employee_cannot_get_other_employee_balance(client, db_session):
+    user, employee = create_employee(db_session)
+
+    response = client.get(
+        f"/leaves/balance/{employee.id}",
+        headers={
+            "Authorization": f"Bearer {employee_token(user)}"
+        }
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Admin access required"
+
+
+# ---------------------------------------------------------
+# ADMIN LEAVE LIST: DATE RANGE, SEARCH, VALIDATION
+# ---------------------------------------------------------
+
+def test_filter_leaves_by_date_range(client, db_session):
+    admin = create_admin(db_session)
+    user, employee = create_employee(db_session)
+
+    today = now().date()
+
+    db_session.add_all([
+        Leave(
+            employee_id=employee.id,
+            leave_type=LeaveType.VACATION,
+            start_date=today + timedelta(days=5),
+            end_date=today + timedelta(days=5),
+            reason="Early",
+            status=LeaveStatus.PENDING,
+            created_at=now(),
+            updated_at=now()
+        ),
+        Leave(
+            employee_id=employee.id,
+            leave_type=LeaveType.SICK,
+            start_date=today + timedelta(days=20),
+            end_date=today + timedelta(days=20),
+            reason="Late",
+            status=LeaveStatus.PENDING,
+            created_at=now(),
+            updated_at=now()
+        )
+    ])
+
+    db_session.commit()
+
+    start_date = today + timedelta(days=3)
+    end_date = today + timedelta(days=7)
+
+    response = client.get(
+        f"/leaves?start_date={start_date.isoformat()}"
+        f"&end_date={end_date.isoformat()}",
+        headers={
+            "Authorization": f"Bearer {admin_token(admin)}"
+        }
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert data["items"][0]["reason"] == "Early"
+
+
+def test_leaves_invalid_date_range(client, db_session):
+    admin = create_admin(db_session)
+
+    response = client.get(
+        "/leaves?start_date=2026-09-10&end_date=2026-09-01",
+        headers={
+            "Authorization": f"Bearer {admin_token(admin)}"
+        }
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "End date cannot be before start date"
+
+
+def test_filter_leaves_by_search(client, db_session):
+    admin = create_admin(db_session)
+    user, employee = create_employee(
+        db_session,
+        email="searchleaf@leave.test",
+        employee_number=20006
+    )
+
+    today = now().date()
+
+    db_session.add(
+        Leave(
+            employee_id=employee.id,
+            leave_type=LeaveType.VACATION,
+            start_date=today + timedelta(days=10),
+            end_date=today + timedelta(days=10),
+            reason="Searchable",
+            status=LeaveStatus.PENDING,
+            created_at=now(),
+            updated_at=now()
+        )
+    )
+
+    db_session.commit()
+
+    response = client.get(
+        "/leaves?search=20006",
+        headers={
+            "Authorization": f"Bearer {admin_token(admin)}"
+        }
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert data["items"][0]["employee_number"] == 20006
+
+
+def test_leave_pagination_empty_page(client, db_session):
+    admin = create_admin(db_session)
+    user, employee = create_employee(db_session)
+
+    today = now().date()
+
+    db_session.add(
+        Leave(
+            employee_id=employee.id,
+            leave_type=LeaveType.VACATION,
+            start_date=today + timedelta(days=10),
+            end_date=today + timedelta(days=10),
+            reason="Pager",
+            status=LeaveStatus.PENDING,
+            created_at=now(),
+            updated_at=now()
+        )
+    )
+
+    db_session.commit()
+
+    response = client.get(
+        "/leaves?page=5&limit=10",
+        headers={
+            "Authorization": f"Bearer {admin_token(admin)}"
+        }
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["items"] == []
+    assert data["total"] == 1
+    assert data["page"] == 5
+
+
+def test_leaves_unauthenticated(client):
+    response = client.get("/leaves")
+
+    assert response.status_code == 401
+
+
+def test_leaves_invalid_page(client, db_session):
+    admin = create_admin(db_session)
+
+    response = client.get(
+        "/leaves?page=0",
+        headers={
+            "Authorization": f"Bearer {admin_token(admin)}"
+        }
+    )
+
+    assert response.status_code == 422
+
+
+def test_leaves_invalid_limit_above_maximum(client, db_session):
+    admin = create_admin(db_session)
+
+    response = client.get(
+        "/leaves?limit=101",
+        headers={
+            "Authorization": f"Bearer {admin_token(admin)}"
+        }
+    )
+
+    assert response.status_code == 422
+
+
+def test_leaves_invalid_status_filter(client, db_session):
+    admin = create_admin(db_session)
+
+    response = client.get(
+        "/leaves?status=unknown",
+        headers={
+            "Authorization": f"Bearer {admin_token(admin)}"
+        }
+    )
+
+    assert response.status_code == 422
+
+
+# ---------------------------------------------------------
+# DEFENSIVE BRANCHES: NOT FOUND
+# ---------------------------------------------------------
+
+def test_cancel_nonexistent_leave(client, db_session):
+    user, employee = create_employee(db_session)
+
+    response = client.patch(
+        "/leaves/999999/cancel",
+        headers={
+            "Authorization": f"Bearer {employee_token(user)}"
+        }
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Leave request not found"
+
+
+def test_update_leave_balance_missing_employee(client, db_session):
+    admin = create_admin(db_session)
+
+    response = client.patch(
+        "/leaves/balance/999999/vacation",
+        headers={
+            "Authorization": f"Bearer {admin_token(admin)}"
+        },
+        json={
+            "total_days": 15
+        }
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Employee not found"
+
+
+def test_update_leave_balance_missing_balance(client, db_session):
+    admin = create_admin(db_session)
+    user, employee = create_employee(
+        db_session,
+        email="nobalance@leave.test",
+        employee_number=20007
+    )
+
+    response = client.patch(
+        f"/leaves/balance/{employee.id}/vacation",
+        headers={
+            "Authorization": f"Bearer {admin_token(admin)}"
+        },
+        json={
+            "total_days": 15
+        }
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Leave balance not found"
