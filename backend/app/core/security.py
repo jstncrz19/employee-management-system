@@ -124,9 +124,9 @@ def get_current_employee_user(
     """Return an active employee for endpoints reserved for employee users.
 
     Administrators may have an employee profile so they can use shared
-    self-service features such as "My Leaves".  They must not, however, gain
-    access to employee-only attendance and dashboard endpoints merely because
-    that profile exists.
+    self-service features such as "My Leaves" and self-service attendance
+    through get_current_employee.  They must not, however, gain access to the
+    employee-only dashboard endpoint merely because that profile exists.
     """
     if current_user.role != "employee":
         raise HTTPException(

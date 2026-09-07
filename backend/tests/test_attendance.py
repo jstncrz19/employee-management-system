@@ -235,6 +235,199 @@ def test_check_out_on_approved_leave(client, db_session):
     assert response.json()["detail"] == "You are on approved leave today"
 
 
+def create_admin_with_profile(
+    db_session,
+    email="admin.profile@test.com",
+    employee_number=20001,
+    status="active"
+):
+    admin = create_admin(db_session)
+
+    employee = Employee(
+        user_id=admin.id,
+        employee_number=employee_number,
+        first_name="Admin",
+        last_name="Profile",
+        email=f"profile.{email}",
+        department="IT",
+        position="Manager",
+        date_hired=date(2026, 8, 1),
+        status=status
+    )
+
+    db_session.add(employee)
+    db_session.commit()
+    db_session.refresh(employee)
+
+    return admin, employee
+
+
+# =========================================================
+# ADMIN SELF-SERVICE ATTENDANCE (LINKED EMPLOYEE PROFILE)
+# =========================================================
+
+def test_admin_with_linked_profile_can_check_in(client, db_session):
+    admin, employee = create_admin_with_profile(db_session)
+
+    response = client.post(
+        "/attendance/check-in",
+        headers={"Authorization": f"Bearer {create_employee_token(admin)}"}
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["employee_id"] == employee.id
+    assert data["date"] == now().date().isoformat()
+    assert data["time_in"] is not None
+    assert data["time_out"] is None
+    assert data["status"] == "present"
+
+
+def test_admin_with_linked_profile_can_check_out(client, db_session):
+    admin, employee = create_admin_with_profile(db_session)
+
+    token = create_employee_token(admin)
+
+    check_in_response = client.post(
+        "/attendance/check-in",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert check_in_response.status_code == 201
+
+    response = client.post(
+        "/attendance/check-out",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["employee_id"] == employee.id
+    assert data["time_in"] is not None
+    assert data["time_out"] is not None
+    assert data["status"] == "present"
+
+
+def test_admin_with_linked_profile_can_get_my_attendance(client, db_session):
+    admin, employee = create_admin_with_profile(db_session)
+
+    attendance = Attendance(
+        employee_id=employee.id,
+        date=now().date(),
+        time_in=time(8, 0),
+        time_out=time(17, 0),
+        status="present"
+    )
+
+    db_session.add(attendance)
+    db_session.commit()
+
+    response = client.get(
+        "/attendance/me",
+        headers={"Authorization": f"Bearer {create_employee_token(admin)}"}
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["employee_id"] == employee.id
+
+
+def test_admin_with_linked_profile_duplicate_check_in_returns_400(
+    client,
+    db_session
+):
+    admin, _ = create_admin_with_profile(db_session)
+
+    token = create_employee_token(admin)
+
+    first_response = client.post(
+        "/attendance/check-in",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert first_response.status_code == 201
+
+    second_response = client.post(
+        "/attendance/check-in",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert second_response.status_code == 400
+    assert second_response.json()["detail"] == "Already checked in today"
+
+
+def test_admin_with_linked_profile_check_in_during_approved_leave_returns_400(
+    client,
+    db_session
+):
+    admin, employee = create_admin_with_profile(db_session)
+
+    today = now().date()
+
+    leave = Leave(
+        employee_id=employee.id,
+        leave_type=LeaveType.VACATION,
+        start_date=today,
+        end_date=today,
+        reason="Vacation",
+        status=LeaveStatus.APPROVED,
+        created_at=now(),
+        updated_at=now()
+    )
+
+    db_session.add(leave)
+    db_session.commit()
+
+    response = client.post(
+        "/attendance/check-in",
+        headers={"Authorization": f"Bearer {create_employee_token(admin)}"}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "You are on approved leave today"
+
+
+def test_admin_without_linked_profile_check_in_returns_403(
+    client,
+    db_session
+):
+    admin = create_admin(db_session)
+
+    response = client.post(
+        "/attendance/check-in",
+        headers={"Authorization": f"Bearer {create_employee_token(admin)}"}
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "Admin account has no linked employee profile; "
+        "a linked employee profile is required to use "
+        "self-service features"
+    )
+
+
+def test_admin_with_inactive_profile_check_in_returns_403(
+    client,
+    db_session
+):
+    admin, _ = create_admin_with_profile(db_session, status="inactive")
+
+    response = client.post(
+        "/attendance/check-in",
+        headers={"Authorization": f"Bearer {create_employee_token(admin)}"}
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Employee account is inactive"
+
+
 def test_check_in_with_pending_leave(client, db_session):
     user, employee = create_employee(db_session)
 

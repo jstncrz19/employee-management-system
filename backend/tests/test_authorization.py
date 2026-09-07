@@ -141,12 +141,10 @@ def test_employee_gets_403_on_admin_endpoints(
     assert response.json()["detail"] == "Admin access required"
 
 
-# An admin user is rejected by get_current_employee_user on employee-only
-# endpoints even when an employee profile exists.
+# An admin user is rejected by get_current_employee_user on the
+# employee-only dashboard endpoint even when an employee profile exists.
 ADMIN_EMPLOYEE_ONLY_REQUESTS = [
-    ("GET", "/attendance/me"),
-    ("POST", "/attendance/check-in"),
-    ("POST", "/attendance/check-out"),
+    ("GET", "/dashboard/me"),
 ]
 
 

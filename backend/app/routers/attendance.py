@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.time import now
-from app.core.security import get_current_employee_user
+from app.core.security import get_current_employee
 from app.core.permissions import require_admin
 from app.core.audit import create_audit_log
 
@@ -36,8 +36,10 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
     summary="Check in",
     description=(
-        "Employee only. Records today's attendance with status `present`. "
-        "Blocked with 400 while on approved leave or if already checked in today."
+        "Self-service. Records today's attendance with status `present` for "
+        "the current employee profile. Requires an active linked employee "
+        "profile. Blocked with 400 while on approved leave or if already "
+        "checked in today."
     ),
     responses={
         400: {"description": "On approved leave today, or already checked in"},
@@ -45,7 +47,7 @@ router = APIRouter(
     }
 )
 def check_in(
-    current_employee: Employee = Depends(get_current_employee_user),
+    current_employee: Employee = Depends(get_current_employee),
     db: Session = Depends(get_db)
 ):
     current_datetime = now()
@@ -122,15 +124,16 @@ def check_in(
     response_model=AttendanceResponse,
     summary="Check out",
     description=(
-        "Employee only. Records today's check-out time. Requires a check-in "
-        "earlier today and is blocked while on approved leave."
+        "Self-service. Records today's check-out time for the current "
+        "employee profile. Requires an active linked employee profile, a "
+        "check-in earlier today, and is blocked while on approved leave."
     ),
     responses={
         400: {"description": "Not checked in, already checked out, or on approved leave"}
     }
 )
 def check_out(
-    current_employee: Employee = Depends(get_current_employee_user),
+    current_employee: Employee = Depends(get_current_employee),
     db: Session = Depends(get_db)
 ):
     current_datetime = now()
@@ -315,14 +318,14 @@ def get_all_attendance(
 @router.get(
     "/me",
     response_model=list[AttendanceResponse],
-    summary="Get my attendance history",
+summary="Get my attendance history",
     description=(
-        "Employee only. Attendance history for the current employee, "
-        "newest first."
+        "Self-service. Attendance history for the current employee profile, "
+        "newest first. Requires an active linked employee profile."
     )
 )
 def get_my_attendance(
-    current_employee: Employee = Depends(get_current_employee_user),
+    current_employee: Employee = Depends(get_current_employee),
     db: Session = Depends(get_db)
 ):
     attendance_records = db.scalars(

@@ -187,6 +187,56 @@ def test_dashboard_summary_present_today(client, db_session):
     assert data["absent_today"] == 0
 
 
+def test_dashboard_summary_counts_admin_linked_employee_as_present(
+    client,
+    db_session
+):
+    admin = create_admin(db_session)
+
+    employee = Employee(
+        user_id=admin.id,
+        employee_number=30010,
+        first_name="Admin",
+        last_name="Profile",
+        email="admin.profile@dashboard.test",
+        department="IT",
+        position="Manager",
+        date_hired=date(2026, 8, 1),
+        status="active"
+    )
+
+    db_session.add(employee)
+    db_session.commit()
+    db_session.refresh(employee)
+
+    attendance = Attendance(
+        employee_id=employee.id,
+        date=now().date(),
+        time_in=time(8, 0),
+        time_out=time(17, 0),
+        status="present"
+    )
+
+    db_session.add(attendance)
+    db_session.commit()
+
+    response = client.get(
+        "/dashboard/summary",
+        headers={
+            "Authorization": f"Bearer {token(admin)}"
+        }
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total_employees"] == 1
+    assert data["active_employees"] == 1
+    assert data["present_today"] == 1
+    assert data["absent_today"] == 0
+
+
 def test_dashboard_summary_on_leave_today(client, db_session):
     admin = create_admin(db_session)
 
