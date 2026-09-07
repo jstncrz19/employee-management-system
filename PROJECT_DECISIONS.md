@@ -26,7 +26,17 @@ A full-stack employee leave and attendance management system covering employee r
 - Deactivating an employee is a soft delete (status becomes `inactive`).
 - No dedicated departments table: `department` is a field on the employee record.
 - Every significant action is written to the audit log.
-- Backend stays cloud-agnostic; no deployment configuration is part of the repository.
+- Local development stays Docker Compose-based; the production deployment targets Render with Supabase PostgreSQL (see "Production Deployment" below).
+
+## Production Deployment
+
+- React frontend deployed as a Render Static Site.
+- FastAPI backend deployed as a Render Docker Web Service.
+- PostgreSQL hosted on Supabase.
+- The Supabase Session Pooler is used for the Render backend because Render's environment is IPv4-oriented.
+- The database schema is created using the existing Alembic migrations.
+- Production frontend/backend URLs are configured through environment variables.
+- No cloud deployment existed before this deployment work.
 
 ## Development Approach
 

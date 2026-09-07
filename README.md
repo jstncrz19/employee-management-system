@@ -439,6 +439,53 @@ The backend `.env` (for local runs) uses a `DATABASE_URL` such as `postgresql+ps
 | --- | --- | --- |
 | `VITE_API_BASE_URL` | `http://localhost:8000` | Base URL of the FastAPI backend |
 
+## Deployment
+
+### Production architecture
+
+```text
+React/Vite  →  Render Static Site  →  Render FastAPI Docker Web Service  →  Supabase PostgreSQL
+```
+
+### Backend production environment variables
+
+Configure these in the Render Web Service environment:
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | SQLAlchemy connection string for Supabase PostgreSQL |
+| `JWT_SECRET_KEY` | Yes | Secret used to sign/verify JWTs (use a long random value) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No | Defaults to `30` |
+| `CORS_ORIGINS` | No | Comma-separated allowed origins; set to the Render frontend URL |
+
+`DATABASE_URL` uses the SQLAlchemy psycopg format:
+
+```text
+postgresql+psycopg://USER:PASSWORD@HOST:5432/postgres?sslmode=require
+```
+
+If the database password contains URL-reserved characters, it must be URL-encoded.
+
+### Frontend production environment variable
+
+| Variable | Description |
+| --- | --- |
+| `VITE_API_BASE_URL` | URL of the deployed backend (embedded into the build) |
+
+### Deployment sequence
+
+1. Create/configure the Supabase PostgreSQL project.
+2. Configure the Render backend environment variables.
+3. Deploy the backend.
+4. Run `alembic upgrade head` against the production Supabase database.
+5. Verify `/health` and `/docs`.
+6. Configure `CORS_ORIGINS` with the actual Render frontend URL.
+7. Deploy the React frontend as a Render Static Site.
+8. Set `VITE_API_BASE_URL` to the deployed backend URL.
+9. Verify login and core application flows.
+
+Secrets must be configured through Render environment variables and must never be committed to Git.
+
 ## Testing
 
 The backend has **228 passing tests** covering authentication, authorization, validation, business logic, defensive branches, and the admin bootstrap script. CI runs the suite against a real PostgreSQL service on every push and pull request.
