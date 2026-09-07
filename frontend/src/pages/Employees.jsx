@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 
 import api from "../services/api";
-import Navbar from "../components/Navbar";
+import AppShell from "../components/layout/AppShell";
 import Loading from "../components/Loading";
 import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
 import StatusBadge from "../components/StatusBadge";
+import PageHeader from "../components/PageHeader";
 import { getErrorMessage } from "../utils/errorMessage";
+import { formatLeaveType } from "../utils/formatters";
 
 function Employees() {
   const [employees, setEmployees] = useState([]);
@@ -416,81 +418,96 @@ function Employees() {
     }
   };
 
-  const formatLeaveType = (leaveType) => {
-    return (
-      leaveType.charAt(0).toUpperCase() +
-      leaveType.slice(1)
-    );
-  };
-
   const hasActiveFilters = Boolean(
     search.trim() || statusFilter.trim() || departmentFilter.trim()
   );
 
-  return (
-    <div>
-      <Navbar />
+  const toggleAddForm = () => {
+    setShowForm((current) => !current);
+    setError("");
+    setMessage("");
+  };
 
+  return (
+    <AppShell>
       <main className="page-container">
-        <h1>Employee Management</h1>
+        <PageHeader
+          title="Employees"
+          subtitle="Manage employee records and account access."
+        >
+          <button
+            className={showForm ? "btn-secondary" : "btn-primary"}
+            type="button"
+            onClick={toggleAddForm}
+          >
+            {showForm ? "Cancel" : "Add Employee"}
+          </button>
+        </PageHeader>
 
         {error && <div className="error">{error}</div>}
         {message && <div className="success">{message}</div>}
-
-        <button
-          className="btn-primary"
-          onClick={() => {
-            setShowForm((current) => !current);
-            setError("");
-            setMessage("");
-          }}
-        >
-          {showForm ? "Cancel" : "Add Employee"}
-        </button>
 
         {showForm && (
           <section>
             <h2>Create Employee</h2>
 
             <form onSubmit={handleCreate}>
-              <div>
-                <label htmlFor="employee-number">
-                  Employee Number
-                </label>
-                <input
-                  id="employee-number"
-                  name="employee_number"
-                  type="number"
-                  value={form.employee_number}
-                  onChange={handleChange}
-                  required
-                />
+              <div className="form-row">
+                <div>
+                  <label htmlFor="employee-number">
+                    Employee Number
+                  </label>
+                  <input
+                    id="employee-number"
+                    name="employee_number"
+                    type="number"
+                    value={form.employee_number}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="date-hired">
+                    Date Hired
+                  </label>
+                  <input
+                    id="date-hired"
+                    name="date_hired"
+                    type="date"
+                    value={form.date_hired}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
               </div>
 
-              <div>
-                <label htmlFor="first-name">
-                  First Name
-                </label>
-                <input
-                  id="first-name"
-                  name="first_name"
-                  value={form.first_name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
+              <div className="form-row">
+                <div>
+                  <label htmlFor="first-name">
+                    First Name
+                  </label>
+                  <input
+                    id="first-name"
+                    name="first_name"
+                    value={form.first_name}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
 
-              <div>
-                <label htmlFor="last-name">
-                  Last Name
-                </label>
-                <input
-                  id="last-name"
-                  name="last_name"
-                  value={form.last_name}
-                  onChange={handleChange}
-                  required
-                />
+                <div>
+                  <label htmlFor="last-name">
+                    Last Name
+                  </label>
+                  <input
+                    id="last-name"
+                    name="last_name"
+                    value={form.last_name}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
               </div>
 
               <div>
@@ -507,44 +524,32 @@ function Employees() {
                 />
               </div>
 
-              <div>
-                <label htmlFor="department">
-                  Department
-                </label>
-                <input
-                  id="department"
-                  name="department"
-                  value={form.department}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
+              <div className="form-row">
+                <div>
+                  <label htmlFor="department">
+                    Department
+                  </label>
+                  <input
+                    id="department"
+                    name="department"
+                    value={form.department}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
 
-              <div>
-                <label htmlFor="position">
-                  Position
-                </label>
-                <input
-                  id="position"
-                  name="position"
-                  value={form.position}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div>
-                <label htmlFor="date-hired">
-                  Date Hired
-                </label>
-                <input
-                  id="date-hired"
-                  name="date_hired"
-                  type="date"
-                  value={form.date_hired}
-                  onChange={handleChange}
-                  required
-                />
+                <div>
+                  <label htmlFor="position">
+                    Position
+                  </label>
+                  <input
+                    id="position"
+                    name="position"
+                    value={form.position}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
               </div>
 
               <button
@@ -565,30 +570,32 @@ function Employees() {
             <h2>Edit Employee</h2>
 
             <form onSubmit={handleUpdate}>
-              <div>
-                <label htmlFor="edit-first-name">
-                  First Name
-                </label>
-                <input
-                  id="edit-first-name"
-                  name="first_name"
-                  value={editForm.first_name}
-                  onChange={handleEditChange}
-                  required
-                />
-              </div>
+              <div className="form-row">
+                <div>
+                  <label htmlFor="edit-first-name">
+                    First Name
+                  </label>
+                  <input
+                    id="edit-first-name"
+                    name="first_name"
+                    value={editForm.first_name}
+                    onChange={handleEditChange}
+                    required
+                  />
+                </div>
 
-              <div>
-                <label htmlFor="edit-last-name">
-                  Last Name
-                </label>
-                <input
-                  id="edit-last-name"
-                  name="last_name"
-                  value={editForm.last_name}
-                  onChange={handleEditChange}
-                  required
-                />
+                <div>
+                  <label htmlFor="edit-last-name">
+                    Last Name
+                  </label>
+                  <input
+                    id="edit-last-name"
+                    name="last_name"
+                    value={editForm.last_name}
+                    onChange={handleEditChange}
+                    required
+                  />
+                </div>
               </div>
 
               <div>
@@ -605,30 +612,32 @@ function Employees() {
                 />
               </div>
 
-              <div>
-                <label htmlFor="edit-department">
-                  Department
-                </label>
-                <input
-                  id="edit-department"
-                  name="department"
-                  value={editForm.department}
-                  onChange={handleEditChange}
-                  required
-                />
-              </div>
+              <div className="form-row">
+                <div>
+                  <label htmlFor="edit-department">
+                    Department
+                  </label>
+                  <input
+                    id="edit-department"
+                    name="department"
+                    value={editForm.department}
+                    onChange={handleEditChange}
+                    required
+                  />
+                </div>
 
-              <div>
-                <label htmlFor="edit-position">
-                  Position
-                </label>
-                <input
-                  id="edit-position"
-                  name="position"
-                  value={editForm.position}
-                  onChange={handleEditChange}
-                  required
-                />
+                <div>
+                  <label htmlFor="edit-position">
+                    Position
+                  </label>
+                  <input
+                    id="edit-position"
+                    name="position"
+                    value={editForm.position}
+                    onChange={handleEditChange}
+                    required
+                  />
+                </div>
               </div>
 
               <div>
@@ -652,17 +661,19 @@ function Employees() {
                 </select>
               </div>
 
-              <button className="btn-primary" type="submit">
-                Save Changes
-              </button>
+              <div className="form-row">
+                <button className="btn-primary" type="submit">
+                  Save Changes
+                </button>
 
-              <button
-                className="btn-secondary"
-                type="button"
-                onClick={() => setEditingEmployee(null)}
-              >
-                Cancel
-              </button>
+                <button
+                  className="btn-secondary"
+                  type="button"
+                  onClick={() => setEditingEmployee(null)}
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
           </section>
         )}
@@ -707,52 +718,61 @@ function Employees() {
                 />
               </div>
 
-              <button
-                className="btn-primary"
-                type="submit"
-                disabled={accountSubmitting}
-              >
-                {accountSubmitting
-                  ? "Creating..."
-                  : "Create Account"}
-              </button>
+              <div className="form-row">
+                <button
+                  className="btn-primary"
+                  type="submit"
+                  disabled={accountSubmitting}
+                >
+                  {accountSubmitting
+                    ? "Creating..."
+                    : "Create Account"}
+                </button>
 
-              <button
-                className="btn-secondary"
-                type="button"
-                onClick={() => setAccountEmployee(null)}
-              >
-                Cancel
-              </button>
+                <button
+                  className="btn-secondary"
+                  type="button"
+                  onClick={() => setAccountEmployee(null)}
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
           </section>
         )}
 
         {balanceEmployee && (
           <section>
-            <h2>
-              Leave Balances —{" "}
-              {balanceEmployee.first_name}{" "}
-              {balanceEmployee.last_name}
-            </h2>
+            <div className="leave-card-note-header">
+              <h2>
+                Leave Balances —{" "}
+                {balanceEmployee.first_name}{" "}
+                {balanceEmployee.last_name}
+              </h2>
+
+              <button
+                className="btn-secondary btn-sm"
+                type="button"
+                onClick={() => setBalanceEmployee(null)}
+              >
+                Close
+              </button>
+            </div>
 
             {balanceLoading ? (
               <Loading message="Loading leave balances..." />
             ) : balances.length === 0 ? (
               <EmptyState message="No leave balances set up for this employee yet." />
             ) : (
-              <>
+              <div className="balance-editor-grid">
                 {balances.map((balance) => (
                   <div
+                    className="balance-editor-card"
                     key={balance.leave_type}
                   >
-                    <h3>
-                      {formatLeaveType(
-                        balance.leave_type
-                      )}
-                    </h3>
+                    <h3>{formatLeaveType(balance.leave_type)}</h3>
 
-                    <div>
+                    <div className="balance-editor-field">
                       <label
                         htmlFor={`balance-${balance.leave_type}`}
                       >
@@ -774,18 +794,15 @@ function Employees() {
                       />
                     </div>
 
-                    <p>
-                      Used Days:{" "}
-                      {balance.used_days}
-                    </p>
-
-                    <p>
-                      Remaining Days:{" "}
-                      {balance.remaining_days}
-                    </p>
+                    <div className="balance-editor-stats">
+                      <span>Used: {balance.used_days}</span>
+                      <span>
+                        Remaining: {balance.remaining_days}
+                      </span>
+                    </div>
 
                     <button
-                      className="btn-primary"
+                      className="btn-primary btn-sm"
                       type="button"
                       onClick={() =>
                         handleBalanceUpdate(balance)
@@ -802,24 +819,12 @@ function Employees() {
                     </button>
                   </div>
                 ))}
-              </>
+              </div>
             )}
-
-            <button
-              className="btn-secondary"
-              type="button"
-              onClick={() =>
-                setBalanceEmployee(null)
-              }
-            >
-              Close
-            </button>
           </section>
         )}
 
         <section>
-          <h2>Employees</h2>
-
           <div className="toolbar">
             <input
               type="text"
@@ -854,7 +859,7 @@ function Employees() {
               <option value="resigned">Resigned</option>
               <option value="terminated">Terminated</option>
             </select>
-            
+
             <input
               type="text"
               placeholder="Department"
@@ -871,10 +876,9 @@ function Employees() {
             >
               Clear Filters
             </button>
-            
           </div>
 
-          <p>
+          <p className="results-line">
             Showing {employees.length} of {totalEmployees} employees
           </p>
 
@@ -894,87 +898,130 @@ function Employees() {
               }
             />
           ) : (
-            <div className="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Employee #</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Department</th>
-                    <th>Position</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {employees.map((employee) => (
-                    <tr key={employee.id}>
-                      <td>{employee.employee_number}</td>
-
-                      <td>
-                        {employee.first_name}{" "}
-                        {employee.last_name}
-                      </td>
-
-                      <td>{employee.email}</td>
-
-                      <td>{employee.department}</td>
-
-                      <td>{employee.position}</td>
-
-                      <td>
-                        <StatusBadge status={employee.status} />
-                      </td>
-
-                      <td className="action-cell">
-                        <button
-                          className="btn-sm"
-                          onClick={() =>
-                            handleEditClick(employee)
-                          }
-                        >
-                          Edit
-                        </button>
-
-                        {employee.status === "active" && (
-                          <button
-                            className="btn-sm btn-danger"
-                            onClick={() =>
-                              handleDeactivate(employee)
-                            }
-                          >
-                            Deactivate
-                          </button>
-                        )}
-
-                        {employee.status === "active" && (
-                          <button
-                            className="btn-sm"
-                            onClick={() =>
-                              handleAccountClick(employee)
-                            }
-                          >
-                            Create Account
-                          </button>
-                        )}
-
-                        <button
-                          className="btn-sm"
-                          onClick={() =>
-                            handleBalanceClick(employee)
-                          }
-                        >
-                          Leave Balances
-                        </button>
-                      </td>
+            <div className="responsive-table">
+              <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Employee #</th>
+                      <th>Email</th>
+                      <th>Department</th>
+                      <th>Position</th>
+                      <th>Status</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody>
+                    {employees.map((employee) => (
+                      <tr key={employee.id}>
+                        <td data-label="Employee">
+                          <span className="responsive-cell-value responsive-name">
+                            {employee.first_name}{" "}
+                            {employee.last_name}
+                          </span>
+                        </td>
+
+                        <td data-label="Employee #">
+                          <span className="responsive-cell-value">
+                            {employee.employee_number}
+                          </span>
+                        </td>
+
+                        <td data-label="Email" className="text-cell">
+                          <span className="responsive-cell-value">
+                            {employee.email}
+                          </span>
+                        </td>
+
+                        <td data-label="Department" className="text-cell">
+                          <span className="responsive-cell-value">
+                            {employee.department}
+                          </span>
+                        </td>
+
+                        <td data-label="Position" className="text-cell">
+                          <span className="responsive-cell-value">
+                            {employee.position}
+                          </span>
+                        </td>
+
+                        <td data-label="Status">
+                          <span className="responsive-cell-value">
+                            <StatusBadge status={employee.status} />
+                          </span>
+                        </td>
+
+                        <td data-label="Actions" className="action-cell">
+                          <button
+                            className="icon-button"
+                            type="button"
+                            title="Edit employee"
+                            aria-label={`Edit ${employee.first_name} ${employee.last_name}`}
+                            onClick={() =>
+                              handleEditClick(employee)
+                            }
+                          >
+                            <span className="material-symbols-outlined">
+                              edit
+                            </span>
+                          </button>
+
+                          <button
+                            className="icon-button"
+                            type="button"
+                            title="Manage leave balances"
+                            aria-label={`Manage leave balances for ${employee.first_name} ${employee.last_name}`}
+                            onClick={() =>
+                              handleBalanceClick(employee)
+                            }
+                          >
+                            <span className="material-symbols-outlined">
+                              account_balance_wallet
+                            </span>
+                          </button>
+
+                          {employee.has_account === false && (
+                            <button
+                              className="icon-button icon-button-success"
+                              type="button"
+                              title="Create employee account"
+                              aria-label={`Create account for ${employee.first_name} ${employee.last_name}`}
+                              onClick={() =>
+                                handleAccountClick(employee)
+                              }
+                            >
+                              <span className="material-symbols-outlined">
+                                person_add
+                              </span>
+                            </button>
+                          )}
+
+                          {employee.status === "active" && (
+                            <button
+                              className="icon-button icon-button-danger"
+                              type="button"
+                              title="Deactivate employee"
+                              aria-label={`Deactivate ${employee.first_name} ${employee.last_name}`}
+                              onClick={() =>
+                                handleDeactivate(employee)
+                              }
+                            >
+                              <span className="material-symbols-outlined">
+                                person_off
+                              </span>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
+
           <div className="toolbar">
             <button
               className="btn-secondary"
@@ -985,7 +1032,7 @@ function Employees() {
               Previous
             </button>
 
-            <span>
+            <span className="results-line">
               {" "}
               Page {page} of {totalPages}{" "}
             </span>
@@ -1001,7 +1048,7 @@ function Employees() {
           </div>
         </section>
       </main>
-    </div>
+    </AppShell>
   );
 }
 

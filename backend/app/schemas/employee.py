@@ -57,6 +57,7 @@ class EmployeeResponse(BaseModel):
     position: str
     date_hired: date
     status: EmployeeStatus
+    has_account: bool
     
     model_config = ConfigDict(from_attributes=True)
 

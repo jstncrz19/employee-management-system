@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import api from "../services/api";
-import Navbar from "../components/Navbar";
+import AppShell from "../components/layout/AppShell";
 import Loading from "../components/Loading";
 import ErrorState from "../components/ErrorState";
 import StatusBadge from "../components/StatusBadge";
+import StatCard from "../components/dashboard/StatCard";
+import AttendanceDistribution from "../components/dashboard/AttendanceDistribution";
 import { getErrorMessage } from "../utils/errorMessage";
+import {
+  formatDisplayDate,
+  formatDisplayTime,
+} from "../utils/formatters";
 
 function formatLocalDate(date) {
   const year = date.getFullYear();
@@ -122,25 +129,17 @@ function AdminDashboard() {
     }
   };
 
-  const cards = summary
-    ? [
-        { label: "Total Employees", value: summary.total_employees },
-        { label: "Active Employees", value: summary.active_employees },
-        { label: "Present Today", value: summary.present_today },
-        { label: "Absent Today", value: summary.absent_today },
-        { label: "On Leave Today", value: summary.on_leave_today },
-        {
-          label: "Pending Leave Requests",
-          value: summary.pending_leave_requests,
-        },
-      ]
-    : [];
-
   return (
-    <div>
-      <Navbar />
+    <AppShell>
       <main className="page-container">
-        <h1>Admin Dashboard</h1>
+        <div className="page-header">
+          <div>
+            <h1>Dashboard</h1>
+            <p className="page-subtitle">
+              Overview of today&apos;s workforce activity.
+            </p>
+          </div>
+        </div>
 
         {actionError && (
           <div className="error">{actionError}</div>
@@ -150,58 +149,6 @@ function AdminDashboard() {
           <div className="success">{actionMessage}</div>
         )}
 
-        <section>
-          <h2>Today's Attendance</h2>
-
-          {attendanceLoading ? (
-            <Loading message="Loading today's attendance..." />
-          ) : attendanceError ? (
-            <div>
-              <div className="error">{attendanceError}</div>
-              <button
-                className="btn-primary"
-                onClick={handleAttendanceRetry}
-              >
-                Retry
-              </button>
-            </div>
-          ) : attendanceToday ? (
-            <div>
-              <p>Date: {attendanceToday.date}</p>
-              <p>
-                Time In:{" "}
-                {attendanceToday.time_in || "Not checked in"}
-              </p>
-              <p>
-                Time Out:{" "}
-                {attendanceToday.time_out || "Not checked out"}
-              </p>
-              <p>Status: <StatusBadge status={attendanceToday.status} /></p>
-
-              {!attendanceToday.time_out && (
-                <button
-                  className="btn-primary"
-                  onClick={() => handleAttendanceAction("check-out")}
-                  disabled={actionLoading}
-                >
-                  {actionLoading ? "Processing..." : "Check Out"}
-                </button>
-              )}
-            </div>
-          ) : (
-            <div>
-              <p>No attendance recorded today.</p>
-              <button
-                className="btn-primary"
-                onClick={() => handleAttendanceAction("check-in")}
-                disabled={actionLoading}
-              >
-                {actionLoading ? "Processing..." : "Check In"}
-              </button>
-            </div>
-          )}
-        </section>
-
         {loading ? (
           <Loading message="Loading dashboard summary..." />
         ) : loadError ? (
@@ -210,20 +157,126 @@ function AdminDashboard() {
             onRetry={handleRetry}
           />
         ) : summary ? (
-          <section>
-            <h2>Company Overview</h2>
-            <div className="dashboard-cards">
-              {cards.map((card) => (
-                <div className="dashboard-card" key={card.label}>
-                  <h2>{card.value}</h2>
-                  <p>{card.label}</p>
-                </div>
-              ))}
+          <div className="dashboard-stack">
+            <section className="kpi-grid">
+              <StatCard
+                label="Total Employees"
+                value={summary.total_employees}
+                icon="group"
+              />
+              <StatCard
+                label="Present Today"
+                value={summary.present_today}
+                icon="event_available"
+              />
+              <StatCard
+                label="On Leave Today"
+                value={summary.on_leave_today}
+                icon="holiday_village"
+              />
+              <StatCard
+                label="Absent Today"
+                value={summary.absent_today}
+                icon="person_off"
+              />
+            </section>
+
+            <div className="dashboard-two-col">
+              <section>
+                <h2>Attendance Overview</h2>
+                <AttendanceDistribution
+                  present={summary.present_today}
+                  onLeave={summary.on_leave_today}
+                  absent={summary.absent_today}
+                />
+              </section>
+
+              <section className="self-checkin-card">
+                <h2>Today&apos;s Work Session</h2>
+
+                {attendanceLoading ? (
+                  <Loading message="Loading..." />
+                ) : attendanceError ? (
+                  <div>
+                    <div className="error">{attendanceError}</div>
+                    <button
+                      className="btn-primary"
+                      onClick={handleAttendanceRetry}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : attendanceToday ? (
+                  <div className="checkin-details">
+                    <div className="checkin-row">
+                      <span className="checkin-label">Date</span>
+                      <span>
+                        {formatDisplayDate(attendanceToday.date)}
+                      </span>
+                    </div>
+                    <div className="checkin-row">
+                      <span className="checkin-label">Time In</span>
+                      <span>
+                        {formatDisplayTime(attendanceToday.time_in) ||
+                          "Not checked in"}
+                      </span>
+                    </div>
+                    <div className="checkin-row">
+                      <span className="checkin-label">Time Out</span>
+                      <span>
+                        {formatDisplayTime(attendanceToday.time_out) ||
+                          "Not checked out"}
+                      </span>
+                    </div>
+                    <div className="checkin-row">
+                      <span className="checkin-label">Status</span>
+                      <StatusBadge status={attendanceToday.status} />
+                    </div>
+
+                    {!attendanceToday.time_out && (
+                      <button
+                        className="btn-primary"
+                        onClick={() => handleAttendanceAction("check-out")}
+                        disabled={actionLoading}
+                      >
+                        {actionLoading ? "Processing..." : "Check Out"}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="checkin-details">
+                    <p>No attendance recorded today.</p>
+                    <button
+                      className="btn-primary"
+                      onClick={() => handleAttendanceAction("check-in")}
+                      disabled={actionLoading}
+                    >
+                      {actionLoading ? "Processing..." : "Check In"}
+                    </button>
+                  </div>
+                )}
+              </section>
             </div>
-          </section>
+
+            <section>
+              <h2>Recent Attendance</h2>
+              <p className="muted-text">
+                The full attendance record for all employees is available on
+                the Attendance page.
+              </p>
+              <p>
+                <Link
+                  className="link-button"
+                  to="/admin/attendance"
+                >
+                  View Attendance
+                </Link>
+              </p>
+            </section>
+          </div>
         ) : null}
       </main>
-    </div>
+    </AppShell>
   );
 }
 

@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 
 import api from "../services/api";
-import Navbar from "../components/Navbar";
+import AppShell from "../components/layout/AppShell";
 import Loading from "../components/Loading";
 import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
 import StatusBadge from "../components/StatusBadge";
+import PageHeader from "../components/PageHeader";
 import { getErrorMessage } from "../utils/errorMessage";
+import {
+  formatDisplayDateRange,
+  formatLeaveType,
+} from "../utils/formatters";
 
 const LIMIT = 10;
 
@@ -81,7 +86,9 @@ function AdminLeaves() {
     try {
       await api.patch(`/leaves/${leaveId}/${action}`);
       setMessage(
-        action === "approve" ? "Leave request approved." : "Leave request rejected."
+        action === "approve"
+          ? "Leave request approved."
+          : "Leave request rejected."
       );
       await fetchLeaves();
     } catch (requestError) {
@@ -97,32 +104,72 @@ function AdminLeaves() {
     search.trim() || status || startDate || endDate
   );
 
+  const isPending = (leaveId, action) =>
+    actionPending?.leaveId === leaveId &&
+    actionPending.action === action;
+
   return (
-    <div>
-      <Navbar />
+    <AppShell>
       <main className="page-container">
-        <h1>Leave Requests</h1>
+        <PageHeader
+          title="Leave Requests"
+          subtitle="Review requests and approve or reject time off."
+        />
+
         {error && <div className="error">{error}</div>}
         {message && <div className="success">{message}</div>}
+
         <div className="toolbar">
-          <input type="search" placeholder="Search name, number, or email"
-            value={searchInput} onChange={(event) => setSearchInput(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Enter") applyFilters(); }} />
-          <select value={status} onChange={(event) => { setStatus(event.target.value); if (page !== 1) setPage(1); }}>
+          <input
+            type="search"
+            placeholder="Search name, number, or email"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") applyFilters();
+            }}
+          />
+
+          <select
+            value={status}
+            onChange={(event) => {
+              setStatus(event.target.value);
+              if (page !== 1) setPage(1);
+            }}
+          >
             <option value="">All statuses</option>
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
             <option value="cancelled">Cancelled</option>
           </select>
-          <label htmlFor="leave-start-date">From</label>
-          <input id="leave-start-date" type="date" value={startDate}
-            onChange={(event) => setStartDate(event.target.value)} />
-          <label htmlFor="leave-end-date">To</label>
-          <input id="leave-end-date" type="date" value={endDate}
-            onChange={(event) => setEndDate(event.target.value)} />
-          <button className="btn-secondary" type="button" onClick={applyFilters}>Search</button>
-          <button className="btn-secondary" type="button" onClick={clearFilters}>Clear Filters</button>
+
+          <label className="filter-label" htmlFor="leave-start-date">
+            From
+          </label>
+          <input
+            id="leave-start-date"
+            type="date"
+            value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+          />
+
+          <label className="filter-label" htmlFor="leave-end-date">
+            To
+          </label>
+          <input
+            id="leave-end-date"
+            type="date"
+            value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+          />
+
+          <button className="btn-secondary" type="button" onClick={applyFilters}>
+            Search
+          </button>
+          <button className="btn-secondary" type="button" onClick={clearFilters}>
+            Clear Filters
+          </button>
         </div>
 
         {loading ? (
@@ -142,31 +189,136 @@ function AdminLeaves() {
           />
         ) : (
           <>
-            <p>Showing {leaves.length} of {total} leave requests</p>
-            <div className="table-wrapper">
-              <table>
-                <thead><tr><th>Employee</th><th>Employee #</th><th>Type</th><th>Start</th><th>End</th><th>Reason</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody>{leaves.map((leave) => (
-                  <tr key={leave.id}>
-                    <td>{leave.employee_name || `Employee #${leave.employee_id}`}</td>
-                    <td>{leave.employee_number || "—"}</td><td>{leave.leave_type}</td>
-                    <td>{leave.start_date}</td><td>{leave.end_date}</td>
-                    <td>{leave.reason || "—"}</td>
-                    <td><StatusBadge status={leave.status} /></td>
-                    <td className="action-cell">{leave.status === "pending" && <><button className="btn-sm btn-primary" disabled={actionPending !== null} onClick={() => handleAction(leave.id, "approve")}>{actionPending?.leaveId === leave.id && actionPending.action === "approve" ? "Approving..." : "Approve"}</button><button className="btn-sm btn-danger" disabled={actionPending !== null} onClick={() => handleAction(leave.id, "reject")}>{actionPending?.leaveId === leave.id && actionPending.action === "reject" ? "Rejecting..." : "Reject"}</button></>}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
+            <p className="results-line">
+              Showing {leaves.length} of {total} leave requests
+            </p>
+
+            <div className="responsive-table">
+              <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Employee #</th>
+                      <th>Leave Type</th>
+                      <th>Date Range</th>
+                      <th>Reason</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {leaves.map((leave) => (
+                      <tr key={leave.id}>
+                        <td data-label="Employee">
+                          <span className="responsive-cell-value">
+                            {leave.employee_name ||
+                              `Employee #${leave.employee_id}`}
+                          </span>
+                        </td>
+
+                        <td data-label="Employee #">
+                          <span className="responsive-cell-value">
+                            {leave.employee_number || "—"}
+                          </span>
+                        </td>
+
+                        <td data-label="Leave Type">
+                          <span className="responsive-cell-value">
+                            {formatLeaveType(leave.leave_type)}
+                          </span>
+                        </td>
+
+                        <td data-label="Date Range">
+                          <span className="responsive-cell-value">
+                            {formatDisplayDateRange(
+                              leave.start_date,
+                              leave.end_date
+                            )}
+                          </span>
+                        </td>
+
+                        <td data-label="Reason" className="text-cell">
+                          <span className="responsive-cell-value">
+                            {leave.reason || "—"}
+                          </span>
+                        </td>
+
+                        <td data-label="Status">
+                          <span className="responsive-cell-value">
+                            <StatusBadge status={leave.status} />
+                          </span>
+                        </td>
+
+                        <td data-label="Actions" className="action-cell">
+                          {leave.status === "pending" ? (
+                            <>
+                              <button
+                                className="btn-sm btn-primary"
+                                disabled={actionPending !== null}
+                                onClick={() =>
+                                  handleAction(leave.id, "approve")
+                                }
+                              >
+                                {isPending(leave.id, "approve")
+                                  ? "Approving..."
+                                  : "Approve"}
+                              </button>
+
+                              <button
+                                className="btn-sm btn-danger"
+                                disabled={actionPending !== null}
+                                onClick={() =>
+                                  handleAction(leave.id, "reject")
+                                }
+                              >
+                                {isPending(leave.id, "reject")
+                                  ? "Rejecting..."
+                                  : "Reject"}
+                              </button>
+                            </>
+                          ) : (
+                            <span className="responsive-cell-value">
+                              —
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </>
         )}
+
         <div className="toolbar">
-          <button className="btn-secondary" type="button" disabled={loading || page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</button>
-          <span> Page {page} of {pages} </span>
-          <button className="btn-secondary" type="button" disabled={loading || page >= pages} onClick={() => setPage((current) => current + 1)}>Next</button>
+          <button
+            className="btn-secondary"
+            type="button"
+            disabled={loading || page <= 1}
+            onClick={() => setPage((current) => current - 1)}
+          >
+            Previous
+          </button>
+
+          <span className="results-line">
+            {" "}
+            Page {page} of {pages}{" "}
+          </span>
+
+          <button
+            className="btn-secondary"
+            type="button"
+            disabled={loading || page >= pages}
+            onClick={() => setPage((current) => current + 1)}
+          >
+            Next
+          </button>
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 }
 

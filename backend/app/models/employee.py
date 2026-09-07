@@ -49,3 +49,7 @@ class Employee(Base):
         nullable=False,
         default="active"
     )
+
+    @property
+    def has_account(self) -> bool:
+        return self.user_id is not None

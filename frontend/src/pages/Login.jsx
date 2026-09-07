@@ -76,39 +76,103 @@ function Login() {
     };
 
     return (
-        <div>
-            <main className="page-container">
-                <h1>Employee Management System</h1>
-
-                <h2>Login</h2>
-
-                <form onSubmit={handleSubmit}>
-                    <div>
-                        <label>Email</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(event) => setEmail(event.target.value)}
-                            required
-                        />
+        <div className="login-page">
+            <aside className="login-brand">
+                <div className="login-brand-inner">
+                    <div className="brand-lockup">
+                        <span className="brand-mark">S</span>
+                        <div>
+                            <span className="brand-name">StaffPulse</span>
+                            <span className="brand-sub">Employee Operations</span>
+                        </div>
                     </div>
 
-                    <div>
-                        <label>Password</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(event) => setPassword(event.target.value)}
-                            required
-                        />
+                    <div className="login-promo">
+                        <h1>Workforce management in one clean view.</h1>
+                        <p>
+                            Track attendance, manage leave requests, and keep
+                            your team&apos;s operations running smoothly.
+                        </p>
                     </div>
 
-                    {error && <div className="error">{error}</div>}
+                    <ul className="login-features">
+                        <li>
+                            <span className="material-symbols-outlined">
+                                event_available
+                            </span>
+                            Daily attendance with check-in and check-out
+                        </li>
+                        <li>
+                            <span className="material-symbols-outlined">
+                                fact_check
+                            </span>
+                            Leave requests with balances and approvals
+                        </li>
+                        <li>
+                            <span className="material-symbols-outlined">
+                                insights
+                            </span>
+                            Live workforce overview for administrators
+                        </li>
+                    </ul>
+                </div>
+            </aside>
 
-                    <button className="btn-primary" type="submit" disabled={submitting}>
-                        {submitting ? "Logging in..." : "Login"}
-                    </button>
-                </form>
+            <main className="login-panel">
+                <div className="login-card">
+                    <h2>Welcome back</h2>
+                    <p className="login-subtitle">
+                        Sign in with your work email to continue.
+                    </p>
+
+                    <form onSubmit={handleSubmit}>
+                        <div>
+                            <label htmlFor="login-email">Email</label>
+                            <div className="input-with-icon">
+                                <span className="material-symbols-outlined">
+                                    mail
+                                </span>
+                                <input
+                                    id="login-email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(event) => setEmail(event.target.value)}
+                                    placeholder="you@company.com"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label htmlFor="login-password">Password</label>
+                            <div className="input-with-icon">
+                                <span className="material-symbols-outlined">
+                                    lock
+                                </span>
+                                <input
+                                    id="login-password"
+                                    type="password"
+                                    value={password}
+                                    onChange={(event) => setPassword(event.target.value)}
+                                    placeholder="Enter your password"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {error && (
+                            <div className="error form-alert">{error}</div>
+                        )}
+
+                        <button
+                            className="btn-primary btn-block"
+                            type="submit"
+                            disabled={submitting}
+                        >
+                            {submitting ? "Signing in..." : "Sign in"}
+                        </button>
+                    </form>
+                </div>
             </main>
         </div>
     );

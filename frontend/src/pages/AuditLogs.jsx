@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
 import api from "../services/api";
-import Navbar from "../components/Navbar";
+import AppShell from "../components/layout/AppShell";
 import Loading from "../components/Loading";
 import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
+import PageHeader from "../components/PageHeader";
 import { getErrorMessage } from "../utils/errorMessage";
+import { formatDisplayDateTime } from "../utils/formatters";
 
 function AuditLogs() {
   const [logs, setLogs] = useState([]);
@@ -64,11 +66,12 @@ function AuditLogs() {
   };
 
   return (
-    <div>
-      <Navbar />
-
+    <AppShell>
       <main className="page-container">
-        <h1>Audit Logs</h1>
+        <PageHeader
+          title="Audit Logs"
+          subtitle="A chronological record of actions performed in the system."
+        />
 
         {loading ? (
           <Loading message="Loading audit logs..." />
@@ -81,80 +84,109 @@ function AuditLogs() {
           <EmptyState message="No audit logs yet." />
         ) : (
           <>
-            <div className="table-wrapper">
-              <table>
-              <thead>
-                <tr>
-                  <th>User / Employee</th>
-                  <th>Action</th>
-                  <th>Entity</th>
-                  <th>Entity ID</th>
-                  <th>Details</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
+            <p className="results-line">
+              Page {page} of {pages} — {total} total logs
+            </p>
 
-              <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id}>
-                    <td>
-                      {log.employee_name ? (
-                        <div>
-                          <strong>{log.employee_name}</strong>
-                          <br />
-                          <small>{log.user_email}</small>
-                        </div>
-                      ) : (
-                        <div>
-                          <strong>Admin</strong>
-                          <br />
-                          <small>{log.user_email}</small>
-                        </div>
-                      )}
-                    </td>
+            <div className="responsive-table">
+              <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date / Time</th>
+                      <th>User</th>
+                      <th>Action</th>
+                      <th>Resource</th>
+                      <th>Details</th>
+                    </tr>
+                  </thead>
 
-                    <td>{log.action}</td>
+                  <tbody>
+                    {logs.map((log) => (
+                      <tr key={log.id}>
+                        <td data-label="Date / Time">
+                          <span className="responsive-cell-value">
+                            {formatDisplayDateTime(log.created_at)}
+                          </span>
+                        </td>
 
-                    <td>{log.entity_type}</td>
+                        <td data-label="User">
+                          <span className="responsive-cell-value">
+                            {log.employee_name ? (
+                              <div>
+                                <div className="responsive-name">
+                                  {log.employee_name}
+                                </div>
+                                <div className="muted-text">
+                                  {log.user_email}
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="responsive-name">Admin</div>
+                                <div className="muted-text">
+                                  {log.user_email}
+                                </div>
+                              </div>
+                            )}
+                          </span>
+                        </td>
 
-                    <td>{log.entity_id}</td>
+                        <td data-label="Action">
+                          <span className="responsive-cell-value">
+                            <span className="badge badge-neutral">
+                              {log.action}
+                            </span>
+                          </span>
+                        </td>
 
-                    <td>{log.details || "—"}</td>
+                        <td data-label="Resource">
+                          <span className="responsive-cell-value">
+                            {log.entity_type}{" "}
+                            <span className="muted-text">
+                              #{log.entity_id}
+                            </span>
+                          </span>
+                        </td>
 
-                    <td>{log.created_at}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-
-            <div className="toolbar">
-              <p>
-                Showing page {page} of {pages} — {total} total logs
-              </p>
-
-              <button
-                className="btn-secondary"
-                onClick={handlePrevious}
-                disabled={page <= 1}
-              >
-                Previous
-              </button>
-
-              {" "}
-
-              <button
-                className="btn-secondary"
-                onClick={handleNext}
-                disabled={page >= pages}
-              >
-                Next
-              </button>
+                        <td data-label="Details" className="text-cell">
+                          <span className="responsive-cell-value">
+                            {log.details || "—"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </>
         )}
+
+        <div className="toolbar">
+          <button
+            className="btn-secondary"
+            onClick={handlePrevious}
+            disabled={loading || page <= 1}
+          >
+            Previous
+          </button>
+
+          <span className="results-line">
+            {" "}
+            Page {page} of {pages}{" "}
+          </span>
+
+          <button
+            className="btn-secondary"
+            onClick={handleNext}
+            disabled={loading || page >= pages}
+          >
+            Next
+          </button>
+        </div>
       </main>
-    </div>
+    </AppShell>
   );
 }
 

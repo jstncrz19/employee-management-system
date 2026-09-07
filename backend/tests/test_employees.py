@@ -1452,10 +1452,7 @@ def test_duplicate_attendance_same_employee_and_date_rejected(
 
     db_session.rollback()
 
-    assert duplicate.id is None
-
-
-# ---------------------------------------------------------
+    assert duplicate.id is None# ---------------------------------------------------------
 # EMPLOYEE LIST: FILTERS, SEARCH, SORT, PAGINATION
 # ---------------------------------------------------------
 
@@ -1771,3 +1768,150 @@ def test_duplicate_leave_balance_type_rejected(
     db_session.rollback()
 
     assert duplicate.id is None
+
+
+# ---------------------------------------------------------
+# HAS ACCOUNT (EMPLOYEE <-> USER LINK) EXPOSURE
+# ---------------------------------------------------------
+
+EXPECTED_EMPLOYEE_FIELDS = {
+    "id",
+    "employee_number",
+    "first_name",
+    "last_name",
+    "email",
+    "department",
+    "position",
+    "date_hired",
+    "status",
+    "has_account",
+}
+
+
+def test_new_employee_has_account_false(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    response = client.post(
+        "/employees",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "employee_number": 10050,
+            "first_name": "No",
+            "last_name": "Account",
+            "email": "no.account@test.com",
+            "department": "IT",
+            "position": "Developer",
+            "date_hired": "2026-08-24",
+            "status": "active"
+        }
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["has_account"] is False
+    assert set(data.keys()) == EXPECTED_EMPLOYEE_FIELDS
+    assert "user_id" not in data
+
+
+def test_employee_list_includes_has_account(client, db_session):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    create_response = client.post(
+        "/employees",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "employee_number": 10051,
+            "first_name": "List",
+            "last_name": "HasAccount",
+            "email": "list.hasaccount@test.com",
+            "department": "IT",
+            "position": "Developer",
+            "date_hired": "2026-08-24",
+            "status": "active"
+        }
+    )
+
+    employee_id = create_response.json()["id"]
+
+    response = client.get(
+        "/employees",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+
+    item = next(
+        item for item in response.json()["items"]
+        if item["id"] == employee_id
+    )
+
+    assert item["has_account"] is False
+    assert set(item.keys()) == EXPECTED_EMPLOYEE_FIELDS
+
+
+def test_employee_detail_has_account_true_after_account_created(
+    client,
+    db_session
+):
+    admin = create_admin(db_session)
+    token = create_access_token(admin.id)
+
+    create_response = client.post(
+        "/employees",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "employee_number": 10052,
+            "first_name": "Has",
+            "last_name": "Account",
+            "email": "has.account@test.com",
+            "department": "IT",
+            "position": "Developer",
+            "date_hired": "2026-08-24",
+            "status": "active"
+        }
+    )
+
+    employee_id = create_response.json()["id"]
+
+    account_response = client.post(
+        f"/employees/{employee_id}/account",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "email": "has.account.user@test.com",
+            "password": "testpassword123"
+        }
+    )
+
+    assert account_response.status_code == 201
+
+    detail = client.get(
+        f"/employees/{employee_id}",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert detail.status_code == 200
+
+    data = detail.json()
+
+    assert data["has_account"] is True
+    assert set(data.keys()) == EXPECTED_EMPLOYEE_FIELDS
+    assert "user_id" not in data
+    assert "user" not in data
+
+    listing = client.get(
+        "/employees",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert listing.status_code == 200
+
+    item = next(
+        item for item in listing.json()["items"]
+        if item["id"] == employee_id
+    )
+
+    assert item["has_account"] is True
