@@ -40,6 +40,7 @@
 html,
 body {
     height: 100%;
+    overflow-x: hidden;
 }
 
 body {
@@ -352,6 +353,7 @@ a {
 .app-content {
     flex: 1;
     min-width: 0;
+    overflow-x: hidden;
 }
 
 /* ============================================================
@@ -771,6 +773,7 @@ textarea {
     border-radius: var(--radius-s);
     background: var(--color-surface);
     color: var(--color-text);
+    font-size: 16px;
     line-height: 1.25;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -1785,9 +1788,5 @@ tr:last-child td {
     .leave-card-actions button {
         width: 100%;
         justify-content: center;
-    }
-
-    .app-content {
-        overflow-x: hidden;
     }
 }
