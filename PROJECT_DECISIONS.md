@@ -19,6 +19,7 @@ A full-stack employee leave and attendance management system covering employee r
 ## Domain decisions
 
 - An employee profile links to at most one user account. Employees self-register their login account; admins are created exclusively by the CLI bootstrap script.
+- An admin account may optionally be linked to an employee profile (via the admin bootstrap script) so it can use shared self-service features such as "My Leaves"; employee-only attendance and dashboard endpoints still require the employee role.
 - Leave balances are seeded per employee: vacation 15, sick 15, emergency 5, other 0 days.
 - Approving a leave request deducts the requested days from the balance; cancelling an approved request restores them; rejecting does not change the balance.
 - Approval is rejected when the requested dates overlap an existing attendance record, when the employee is inactive, or when the balance is insufficient.

@@ -341,6 +341,46 @@ docker compose exec backend python -m scripts.create_admin --email admin@example
 
 The script uses the standard password-hashing and authentication system. It refuses to run a second time (once an admin exists) and refuses emails already in use.
 
+#### Admin account with a linked employee profile
+
+An admin can also act as an employee, for example using the self-service "My Leaves" features. To have the script create the linked employee profile when the admin account is created, provide the employee information explicitly (it is never inferred from the email address; the admin's email is reused as the employee email and default leave balances are seeded):
+
+```bash
+docker compose exec backend python -m scripts.create_admin \
+  --email admin@example.com \
+  --password 'choose-a-strong-password' \
+  --employee-number 10000 \
+  --first-name Jane \
+  --last-name Doe \
+  --department Administration \
+  --position Administrator \
+  --date-hired 2026-09-01
+```
+
+#### Linking a profile to an existing admin account
+
+If an admin was created earlier without a profile (for example in an existing deployment), link a profile to that admin without creating a new user account.
+
+To fix an existing production admin (whose account lives in the Supabase database), run a one-off container and temporarily point `DATABASE_URL` at the Supabase Session Pooler connection string. Fill in the `USER`/`PASSWORD`/`HOST` placeholders locally — the actual Supabase password and host belong only on your command line, never in the repository:
+
+```bash
+docker compose run --rm \
+  -e DATABASE_URL="postgresql+psycopg://USER:PASSWORD@HOST:5432/postgres?sslmode=require" \
+  backend python -m scripts.create_admin \
+  --link-existing \
+  --email admin@example.com \
+  --employee-number 10000 \
+  --first-name Jane \
+  --last-name Doe \
+  --department Administration \
+  --position Administrator \
+  --date-hired 2026-09-01
+```
+
+Only `DATABASE_URL` must point at the Supabase database; the rest of the container environment is taken from the local `.env` and is not used for this operation. The command runs against the production database, so only run it when you intend to modify production. For the local Docker database, omit the `-e DATABASE_URL=...` override and use `docker compose exec backend` instead.
+
+`--link-existing` never modifies the user account, its password, or its role; it only creates the employee profile and leave balances. It does not require or use `--password` in this mode. It refuses to run if the user is not an admin, already has a linked profile, or if the employee number/email is already in use.
+
 ### 5. Run the frontend
 
 See [Frontend Setup](#frontend-setup). With the API running on port 8000, the frontend on port 5173 can be started with:
