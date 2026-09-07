@@ -29,8 +29,10 @@ function AdminDashboard() {
   const [actionError, setActionError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchDashboardData = useCallback(async () => {
-    setLoading(true);
+  const fetchDashboardData = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
     setLoadError("");
 
     try {
@@ -109,6 +111,8 @@ function AdminDashboard() {
         time_out: response.data.time_out,
         status: response.data.status,
       });
+
+      await fetchDashboardData(false);
     } catch (requestError) {
       setActionError(
         getErrorMessage(requestError, "Unable to update attendance.")

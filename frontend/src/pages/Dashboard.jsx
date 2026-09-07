@@ -17,8 +17,10 @@ function Dashboard() {
   const [actionLoading, setActionLoading] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
 
-  const fetchDashboard = useCallback(async () => {
-    setLoading(true);
+  const fetchDashboard = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
     setLoadError("");
 
     try {
@@ -51,7 +53,7 @@ function Dashboard() {
     setActionLoading(true);
 
     try {
-      const response = await api.post(`/attendance/${action}`);
+      await api.post(`/attendance/${action}`);
 
       setActionMessage(
         action === "check-in"
@@ -59,15 +61,7 @@ function Dashboard() {
           : "You have successfully checked out."
       );
 
-      setDashboard((currentDashboard) => ({
-        ...currentDashboard,
-        attendance_today: {
-          date: response.data.date,
-          time_in: response.data.time_in,
-          time_out: response.data.time_out,
-          status: response.data.status,
-        },
-      }));
+      await fetchDashboard(false);
     } catch (requestError) {
       setError(
         getErrorMessage(requestError, "Unable to update attendance.")
