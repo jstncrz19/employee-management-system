@@ -515,6 +515,8 @@ The backend `.env` (for local runs) uses a `DATABASE_URL` such as `postgresql+ps
 React/Vite  →  Render Static Site  →  Render FastAPI Docker Web Service  →  Supabase PostgreSQL
 ```
 
+> Note: The backend is deployed on Render's free tier and may take a short time to respond after a period of inactivity while the service wakes up.
+
 ### Backend production environment variables
 
 Configure these in the Render Web Service environment:
