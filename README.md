@@ -61,6 +61,34 @@ The backend is a FastAPI REST API backed by PostgreSQL. The frontend is a React 
 - Automatic OpenAPI documentation
 - 249 automated API tests run in CI
 
+## Screenshots
+
+Captured from the running application.
+
+### Login — StaffPulse authentication
+
+![Login — StaffPulse authentication](docs/screenshots/login.png)
+
+### Admin Dashboard — attendance overview, work session, KPIs, and recent attendance
+
+![Admin Dashboard — attendance overview, work session, KPIs, and recent attendance](docs/screenshots/admin-dashboard.png)
+
+### Employee Management — employee directory, filtering, and management actions
+
+![Employee Management — employee directory, filtering, and management actions](docs/screenshots/employees.png)
+
+### Attendance — attendance records with date and employee filtering
+
+![Attendance — attendance records with date and employee filtering](docs/screenshots/attendance.png)
+
+### Leave Management — leave requests, statuses, and administrative actions
+
+![Leave Management — leave requests, statuses, and administrative actions](docs/screenshots/leave-management.png)
+
+### Mobile Dashboard — responsive employee dashboard on mobile
+
+![Mobile Dashboard — responsive employee dashboard on mobile](docs/screenshots/mobile-dashboard.png)
+
 ## Tech Stack
 
 ### Backend
