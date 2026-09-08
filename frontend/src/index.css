@@ -928,6 +928,7 @@ tr:last-child td {
     align-items: center;
     gap: 10px;
     flex: 0 0 auto;
+    align-self: center;
 }
 
 /* ============================================================
@@ -1163,7 +1164,7 @@ tr:last-child td {
 
 .activity-list {
     list-style: none;
-    margin: 0;
+    margin: 0 0 14px;
     padding: 0;
     display: grid;
     gap: 12px;

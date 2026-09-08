@@ -51,7 +51,7 @@ Routes are role-protected by `src/components/ProtectedRoute.jsx`. Unauthenticate
 
 | Path | Page |
 | --- | --- |
-| `/login` | Login and employee self-registration |
+| `/login` | Login |
 
 ### Admin only
 
@@ -76,7 +76,7 @@ Routes are role-protected by `src/components/ProtectedRoute.jsx`. Unauthenticate
 npm run build
 ```
 
-Outputs the optimized bundle to `frontend/dist`. Vite statically serves it; any reverse proxy should rewrite all non-asset routes to `index.html` so client-side routing works.
+Outputs the optimized bundle to `frontend/dist`. Vite statically serves it; any reverse proxy must rewrite all non-asset routes to `index.html` so client-side routing works. The repo ships `public/_redirects` (`/* /index.html 200`) for static hosts such as Render or Netlify.
 
 ## Scripts
 

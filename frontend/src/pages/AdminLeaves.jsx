@@ -260,27 +260,55 @@ function AdminLeaves() {
                           {leave.status === "pending" ? (
                             <>
                               <button
-                                className="btn-sm btn-primary"
+                                className="icon-button icon-button-success"
+                                type="button"
                                 disabled={actionPending !== null}
+                                title={
+                                  isPending(leave.id, "approve")
+                                    ? "Approving..."
+                                    : "Approve leave request"
+                                }
+                                aria-label={
+                                  isPending(leave.id, "approve")
+                                    ? "Approving leave request..."
+                                    : `Approve leave request for ${
+                                        leave.employee_name ||
+                                        `employee #${leave.employee_id}`
+                                      }`
+                                }
                                 onClick={() =>
                                   handleAction(leave.id, "approve")
                                 }
                               >
-                                {isPending(leave.id, "approve")
-                                  ? "Approving..."
-                                  : "Approve"}
+                                <span className="material-symbols-outlined">
+                                  check_circle
+                                </span>
                               </button>
 
                               <button
-                                className="btn-sm btn-danger"
+                                className="icon-button icon-button-danger"
+                                type="button"
                                 disabled={actionPending !== null}
+                                title={
+                                  isPending(leave.id, "reject")
+                                    ? "Rejecting..."
+                                    : "Reject leave request"
+                                }
+                                aria-label={
+                                  isPending(leave.id, "reject")
+                                    ? "Rejecting leave request..."
+                                    : `Reject leave request for ${
+                                        leave.employee_name ||
+                                        `employee #${leave.employee_id}`
+                                      }`
+                                }
                                 onClick={() =>
                                   handleAction(leave.id, "reject")
                                 }
                               >
-                                {isPending(leave.id, "reject")
-                                  ? "Rejecting..."
-                                  : "Reject"}
+                                <span className="material-symbols-outlined">
+                                  cancel
+                                </span>
                               </button>
                             </>
                           ) : (

@@ -2,7 +2,7 @@
 
 A full-stack employee management system for tracking employees, attendance, leave requests, leave balances, audit logs, and role-based admin/employee dashboards.
 
-The backend is a FastAPI REST API backed by PostgreSQL. The frontend is a React (Vite) single-page application.
+The backend is a FastAPI REST API backed by PostgreSQL. The frontend is a React (Vite) single-page application, presented in the UI under the **StaffPulse** brand.
 
 ## CI
 
@@ -15,8 +15,8 @@ The backend is a FastAPI REST API backed by PostgreSQL. The frontend is a React 
 
 - JWT-based authentication with Argon2 password hashing
 - Role-based authorization (`admin` vs `employee`)
-- Self-service registration creates an employee account, linked employee profile, and default leave balances
-- No public route allows registering an admin account; the initial admin is created with a CLI script (see [Admin Account Setup](#admin-account-setup))
+- Self-service registration (`POST /auth/register`) creates an employee account, linked employee profile, and default leave balances
+- No public route allows registering an admin account; the initial admin is created with a CLI script (see [Admin account setup](#4-create-the-initial-admin-account))
 
 ### Employees
 
@@ -31,7 +31,7 @@ The backend is a FastAPI REST API backed by PostgreSQL. The frontend is a React 
 - Employee check-in / check-out (one record per employee per day)
 - Check-in is blocked while the employee is on approved leave
 - Employee attendance history
-- Admin attendance list with employee/date-range filters, search, and pagination
+- Admin attendance list with employee/date filters, search, and pagination
 
 ### Leave Management
 
@@ -51,7 +51,7 @@ The backend is a FastAPI REST API backed by PostgreSQL. The frontend is a React 
 ### Audit Logging
 
 - Every significant action (create, update, approve, reject, cancel, check-in/out, register, deactivate) is written to an audit log
-- Admin-only audit log viewer with user/employee/action/entity filters, sorting, and pagination
+- Admin-only audit log viewer with user/action/entity-type filters, sorting, and pagination
 
 ### API Quality
 
@@ -59,7 +59,7 @@ The backend is a FastAPI REST API backed by PostgreSQL. The frontend is a React 
 - Consistent error semantics: 400 (invalid business logic), 401 (unauthenticated), 403 (forbidden), 404 (not found), 409 (conflict)
 - Filtering, sorting, and pagination across list endpoints
 - Automatic OpenAPI documentation
-- 228 automated API tests run in CI
+- 249 automated API tests run in CI
 
 ## Tech Stack
 
@@ -195,7 +195,7 @@ Tables (managed by Alembic):
 
 ## API Reference
 
-All routers are tagged, so the full interactive documentation is generated automatically:
+The API is versioned `1.0.0`. All routers are tagged, so the full interactive documentation is generated automatically:
 
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
@@ -258,12 +258,12 @@ employee-management-system/
 ├── frontend/
 │   ├── public/
 │   ├── src/
-│   │   ├── components/    # shared UI (Navbar, guards, states, badges)
+│   │   ├── components/    # shared UI (layout/, dashboard/, employees/, guards, badges)
 │   │   ├── context/       # auth state
 │   │   ├── hooks/         # useAuth
 │   │   ├── pages/         # Login, dashboards, tables, forms
 │   │   ├── services/      # API client, token helpers
-│   │   └── utils/         # error message helpers
+│   │   └── utils/         # error-message and formatter helpers
 │   ├── index.html
 │   └── package.json
 ├── .github/workflows/     # CI pipelines
@@ -391,7 +391,7 @@ npm install
 npm run dev
 ```
 
-Then open `http://localhost:5173`. Log in as the admin created in step 4, or register a new employee account from the login page.
+Then open `http://localhost:5173` and log in as the admin created in step 4. Employee self-registration is exposed through the API (`POST /auth/register`); the current frontend does not provide a registration form.
 
 ### 6. Verify it works
 
@@ -424,7 +424,7 @@ Set it in `frontend/.env` (see `frontend/.env.example`) only if the API is not a
 
 | Path | Access | Page |
 | --- | --- | --- |
-| `/login` | Public | Login / register |
+| `/login` | Public | Login |
 | `/admin` | Admin | Admin dashboard |
 | `/employees` | Admin | Employee management |
 | `/admin/attendance` | Admin | Attendance records |
@@ -528,7 +528,7 @@ Secrets must be configured through Render environment variables and must never b
 
 ## Testing
 
-The backend has **228 passing tests** covering authentication, authorization, validation, business logic, defensive branches, and the admin bootstrap script. CI runs the suite against a real PostgreSQL service on every push and pull request.
+The backend has **249 passing tests** covering authentication, authorization, validation, business logic, defensive branches, and the admin bootstrap script. CI runs the suite against a real PostgreSQL service on every push and pull request.
 
 ```bash
 docker compose exec backend pytest -q
@@ -571,3 +571,7 @@ docker compose up -d backend
 - `.env` files are git-ignored; the repository only tracks `.env.example` templates.
 - Application timezone is set to `Asia/Manila` in `backend/config.py`.
 - Access tokens expire (default 30 minutes) and the frontend redirects to `/login` on a 401.
+
+## License
+
+[MIT](LICENSE) — see the [LICENSE](LICENSE) file.
