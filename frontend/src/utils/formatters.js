@@ -21,6 +21,13 @@ export function formatLeaveType(leaveType) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+export const LEAVE_TYPE_ICONS = {
+  vacation: "beach_access",
+  sick: "medical_services",
+  emergency: "warning",
+  other: "event_available",
+};
+
 export function formatDisplayDate(value) {
   if (!value) {
     return "—";

@@ -863,6 +863,7 @@ form > .form-row {
     max-width: 100%;
     min-width: 0;
     overflow-x: auto;
+    margin: 14px 0px;
 }
 
 table {
@@ -934,7 +935,6 @@ tr:last-child td {
    ============================================================ */
 
 .results-line {
-    margin: 0 0 14px;
     font-size: 13px;
     font-weight: 500;
     color: var(--color-text-muted);

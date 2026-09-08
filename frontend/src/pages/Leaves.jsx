@@ -156,6 +156,7 @@ function Leaves() {
                       <option value="vacation">Vacation</option>
                       <option value="sick">Sick</option>
                       <option value="emergency">Emergency</option>
+                      <option value="other">Other</option>
                     </select>
                   </div>
 

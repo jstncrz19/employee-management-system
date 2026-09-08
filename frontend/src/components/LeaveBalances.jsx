@@ -1,12 +1,5 @@
 import EmptyState from "./EmptyState";
-import { formatLeaveType } from "../utils/formatters";
-
-const LEAVE_TYPE_ICONS = {
-  vacation: "beach_access",
-  sick: "medical_services",
-  emergency: "warning",
-  other: "event_available",
-};
+import { LEAVE_TYPE_ICONS, formatLeaveType } from "../utils/formatters";
 
 function LeaveBalances({
   balances,

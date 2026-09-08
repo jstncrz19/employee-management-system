@@ -9,10 +9,41 @@ import PageHeader from "../components/PageHeader";
 import { getErrorMessage } from "../utils/errorMessage";
 import { formatDisplayDateTime } from "../utils/formatters";
 
+const ACTION_OPTIONS = [
+  "create",
+  "update",
+  "deactivate",
+  "register",
+  "approve",
+  "reject",
+  "cancel",
+  "check_in",
+  "check_out",
+];
+
+const ENTITY_TYPE_OPTIONS = [
+  "employee",
+  "user",
+  "attendance",
+  "leave",
+  "leave_balance",
+];
+
+function formatOptionLabel(value) {
+  return value
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b[a-z]/g, (character) => character.toUpperCase());
+}
+
 function AuditLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+
+  const [action, setAction] = useState("");
+  const [userId, setUserId] = useState("");
+  const [entityType, setEntityType] = useState("");
 
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(0);
@@ -29,6 +60,9 @@ function AuditLogs() {
         params: {
           page: currentPage,
           limit,
+          ...(action && { action }),
+          ...(userId && { user_id: Number(userId) }),
+          ...(entityType && { entity_type: entityType }),
         },
       });
 
@@ -43,7 +77,7 @@ function AuditLogs() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [action, entityType, page, userId]);
 
   useEffect(() => {
     const requestTimer = setTimeout(() => {
@@ -52,6 +86,20 @@ function AuditLogs() {
 
     return () => clearTimeout(requestTimer);
   }, [fetchLogs, page]);
+
+  const resetPage = (setter) => (event) => {
+    setter(event.target.value);
+    if (page !== 1) setPage(1);
+  };
+
+  const clearFilters = () => {
+    setAction("");
+    setUserId("");
+    setEntityType("");
+    if (page !== 1) setPage(1);
+  };
+
+  const hasActiveFilters = Boolean(action || userId || entityType);
 
   const handlePrevious = () => {
     if (page > 1) {
@@ -73,6 +121,51 @@ function AuditLogs() {
           subtitle="A chronological record of actions performed in the system."
         />
 
+        <div className="toolbar">
+          <select
+            value={action}
+            onChange={resetPage(setAction)}
+            aria-label="Filter by action"
+          >
+            <option value="">All Actions</option>
+            {ACTION_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {formatOptionLabel(option)}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="number"
+            min="1"
+            placeholder="User ID"
+            value={userId}
+            onChange={resetPage(setUserId)}
+            aria-label="Filter by user ID"
+          />
+
+          <select
+            value={entityType}
+            onChange={resetPage(setEntityType)}
+            aria-label="Filter by resource type"
+          >
+            <option value="">All Resources</option>
+            {ENTITY_TYPE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {formatOptionLabel(option)}
+              </option>
+            ))}
+          </select>
+
+          <button
+            className="btn-secondary"
+            type="button"
+            onClick={clearFilters}
+          >
+            Clear Filters
+          </button>
+        </div>
+
         {loading ? (
           <Loading message="Loading audit logs..." />
         ) : loadError ? (
@@ -81,7 +174,13 @@ function AuditLogs() {
             onRetry={() => fetchLogs(page)}
           />
         ) : logs.length === 0 ? (
-          <EmptyState message="No audit logs yet." />
+          <EmptyState
+            message={
+              hasActiveFilters
+                ? "No audit logs match your filters."
+                : "No audit logs yet."
+            }
+          />
         ) : (
           <>
             <p className="results-line">

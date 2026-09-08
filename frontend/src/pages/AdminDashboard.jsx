@@ -5,6 +5,7 @@ import api from "../services/api";
 import AppShell from "../components/layout/AppShell";
 import Loading from "../components/Loading";
 import ErrorState from "../components/ErrorState";
+import EmptyState from "../components/EmptyState";
 import StatusBadge from "../components/StatusBadge";
 import StatCard from "../components/dashboard/StatCard";
 import AttendanceDistribution from "../components/dashboard/AttendanceDistribution";
@@ -35,6 +36,11 @@ function AdminDashboard() {
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+
+  const [recentAttendance, setRecentAttendance] = useState([]);
+  const [recentAttendanceLoading, setRecentAttendanceLoading] = useState(true);
+  const [recentAttendanceError, setRecentAttendanceError] = useState("");
+  const [recentAttendanceReloadToken, setRecentAttendanceReloadToken] = useState(0);
 
   const fetchDashboardData = useCallback(async (showLoading = true) => {
     if (showLoading) {
@@ -74,6 +80,25 @@ function AdminDashboard() {
     }
   }, []);
 
+  const fetchRecentAttendance = useCallback(async () => {
+    setRecentAttendanceLoading(true);
+    setRecentAttendanceError("");
+
+    try {
+      const response = await api.get("/attendance", {
+        params: { page: 1, limit: 5 },
+      });
+
+      setRecentAttendance(response.data.items);
+    } catch (requestError) {
+      setRecentAttendanceError(
+        getErrorMessage(requestError, "Unable to load recent attendance.")
+      );
+    } finally {
+      setRecentAttendanceLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const requestTimer = setTimeout(() => {
       fetchDashboardData();
@@ -90,12 +115,24 @@ function AdminDashboard() {
     return () => clearTimeout(requestTimer);
   }, [fetchMyAttendance, attendanceReloadToken]);
 
+  useEffect(() => {
+    const requestTimer = setTimeout(() => {
+      fetchRecentAttendance();
+    }, 0);
+
+    return () => clearTimeout(requestTimer);
+  }, [fetchRecentAttendance, recentAttendanceReloadToken]);
+
   const handleRetry = () => {
     setReloadToken((token) => token + 1);
   };
 
   const handleAttendanceRetry = () => {
     setAttendanceReloadToken((token) => token + 1);
+  };
+
+  const handleRecentAttendanceRetry = () => {
+    setRecentAttendanceReloadToken((token) => token + 1);
   };
 
   const handleAttendanceAction = async (action) => {
@@ -260,18 +297,58 @@ function AdminDashboard() {
 
             <section>
               <h2>Recent Attendance</h2>
-              <p className="muted-text">
-                The full attendance record for all employees is available on
-                the Attendance page.
-              </p>
-              <p>
+
+              {recentAttendanceLoading ? (
+                <Loading message="Loading recent attendance..." />
+              ) : recentAttendanceError ? (
+                <ErrorState
+                  message={recentAttendanceError}
+                  onRetry={handleRecentAttendanceRetry}
+                />
+              ) : recentAttendance.length > 0 ? (
+                <ul className="activity-list">
+                  {recentAttendance.map((attendance) => (
+                    <li
+                      className="activity-item"
+                      key={attendance.id}
+                    >
+                      <div className="activity-item-main">
+                        <span className="activity-item-date">
+                          {attendance.employee_name ||
+                            `Employee #${attendance.employee_id}`}
+                        </span>
+                        <span className="activity-item-times">
+                          {attendance.employee_number
+                            ? `#${attendance.employee_number} · `
+                            : ""}
+                          {formatDisplayDate(attendance.date)}
+                          {" · "}
+                          {attendance.time_in
+                            ? formatDisplayTime(attendance.time_in)
+                            : "No time in"}
+                          {" → "}
+                          {attendance.time_out
+                            ? formatDisplayTime(attendance.time_out)
+                            : "No time out"}
+                        </span>
+                      </div>
+
+                      <StatusBadge status={attendance.status} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState message="No attendance records found." />
+              )}
+
+              <div className="toolbar">
                 <Link
                   className="link-button"
                   to="/admin/attendance"
                 >
-                  View Attendance
+                  View All Attendance
                 </Link>
-              </p>
+              </div>
             </section>
           </div>
         ) : null}

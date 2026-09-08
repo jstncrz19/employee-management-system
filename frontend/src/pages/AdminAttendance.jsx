@@ -22,9 +22,22 @@ function AdminAttendance() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [date, setDate] = useState("");
+  const [employeeId, setEmployeeId] = useState("");
+  const [employees, setEmployees] = useState([]);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(0);
   const [total, setTotal] = useState(0);
+
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const response = await api.get("/employees", {
+        params: { page: 1, limit: 100 },
+      });
+      setEmployees(response.data.items);
+    } catch {
+      return;
+    }
+  }, []);
 
   const fetchAttendance = useCallback(async (requestedPage = page) => {
     setLoading(true);
@@ -36,6 +49,7 @@ function AdminAttendance() {
           limit: LIMIT,
           ...(search && { search }),
           ...(date && { date }),
+          ...(employeeId && { employee_id: Number(employeeId) }),
         },
       });
       setAttendance(response.data.items);
@@ -49,7 +63,7 @@ function AdminAttendance() {
     } finally {
       setLoading(false);
     }
-  }, [date, page, search]);
+  }, [date, employeeId, page, search]);
 
   useEffect(() => {
     const requestTimer = setTimeout(() => {
@@ -59,8 +73,26 @@ function AdminAttendance() {
     return () => clearTimeout(requestTimer);
   }, [fetchAttendance]);
 
+  useEffect(() => {
+    const requestTimer = setTimeout(() => {
+      fetchEmployees();
+    }, 0);
+
+    return () => clearTimeout(requestTimer);
+  }, [fetchEmployees]);
+
   const applyFilters = () => {
     setSearch(searchInput.trim());
+    if (page !== 1) setPage(1);
+  };
+
+  const handleEmployeeChange = (event) => {
+    setEmployeeId(event.target.value);
+    if (page !== 1) setPage(1);
+  };
+
+  const handleDateChange = (event) => {
+    setDate(event.target.value);
     if (page !== 1) setPage(1);
   };
 
@@ -68,6 +100,7 @@ function AdminAttendance() {
     setSearchInput("");
     setSearch("");
     setDate("");
+    setEmployeeId("");
     if (page !== 1) setPage(1);
   };
 
@@ -90,6 +123,19 @@ function AdminAttendance() {
             }}
           />
 
+          <select
+            value={employeeId}
+            onChange={handleEmployeeChange}
+            aria-label="Filter by employee"
+          >
+            <option value="">All Employees</option>
+            {employees.map((employee) => (
+              <option key={employee.id} value={employee.id}>
+                {employee.first_name} {employee.last_name} (#{employee.employee_number})
+              </option>
+            ))}
+          </select>
+
           <label className="filter-label" htmlFor="attendance-date">
             Date
           </label>
@@ -97,7 +143,7 @@ function AdminAttendance() {
             id="attendance-date"
             type="date"
             value={date}
-            onChange={(event) => setDate(event.target.value)}
+            onChange={handleDateChange}
           />
 
           <button className="btn-secondary" type="button" onClick={applyFilters}>
@@ -118,7 +164,7 @@ function AdminAttendance() {
         ) : attendance.length === 0 ? (
           <EmptyState
             message={
-              search || date
+              search || date || employeeId
                 ? "No attendance records match your search or filters."
                 : "No attendance records found for the selected date."
             }

@@ -7,6 +7,15 @@ import EmptyState from "../components/EmptyState";
 import ErrorState from "../components/ErrorState";
 import StatusBadge from "../components/StatusBadge";
 import PageHeader from "../components/PageHeader";
+import CreateEmployeeForm from "../components/employees/CreateEmployeeForm";
+import EditEmployeeForm from "../components/employees/EditEmployeeForm";
+import AccountForm from "../components/employees/AccountForm";
+import BalanceEditor from "../components/employees/BalanceEditor";
+import {
+  EMPTY_FORM,
+  EMPTY_EDIT_FORM,
+  EMPTY_ACCOUNT_FORM,
+} from "../components/employees/constants";
 import { getErrorMessage } from "../utils/errorMessage";
 import { formatLeaveType } from "../utils/formatters";
 
@@ -20,32 +29,13 @@ function Employees() {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const [form, setForm] = useState({
-    employee_number: "",
-    first_name: "",
-    last_name: "",
-    email: "",
-    department: "",
-    position: "",
-    date_hired: "",
-    status: "active",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const [editingEmployee, setEditingEmployee] = useState(null);
-  const [editForm, setEditForm] = useState({
-    first_name: "",
-    last_name: "",
-    email: "",
-    department: "",
-    position: "",
-    status: "active",
-  });
+  const [editForm, setEditForm] = useState(EMPTY_EDIT_FORM);
 
   const [accountEmployee, setAccountEmployee] = useState(null);
-  const [accountForm, setAccountForm] = useState({
-    email: "",
-    password: "",
-  });
+  const [accountForm, setAccountForm] = useState(EMPTY_ACCOUNT_FORM);
 
   const [accountSubmitting, setAccountSubmitting] = useState(false);
 
@@ -169,16 +159,7 @@ function Employees() {
 
       setMessage("Employee created successfully.");
 
-      setForm({
-        employee_number: "",
-        first_name: "",
-        last_name: "",
-        email: "",
-        department: "",
-        position: "",
-        date_hired: "",
-        status: "active",
-      });
+      setForm(EMPTY_FORM);
 
       setShowForm(false);
 
@@ -328,10 +309,7 @@ function Employees() {
 
       setAccountEmployee(null);
 
-      setAccountForm({
-        email: "",
-        password: "",
-      });
+      setAccountForm(EMPTY_ACCOUNT_FORM);
 
       await fetchEmployees();
     } catch (error) {
@@ -448,380 +426,45 @@ function Employees() {
         {message && <div className="success">{message}</div>}
 
         {showForm && (
-          <section>
-            <h2>Create Employee</h2>
-
-            <form onSubmit={handleCreate}>
-              <div className="form-row">
-                <div>
-                  <label htmlFor="employee-number">
-                    Employee Number
-                  </label>
-                  <input
-                    id="employee-number"
-                    name="employee_number"
-                    type="number"
-                    value={form.employee_number}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="date-hired">
-                    Date Hired
-                  </label>
-                  <input
-                    id="date-hired"
-                    name="date_hired"
-                    type="date"
-                    value={form.date_hired}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div>
-                  <label htmlFor="first-name">
-                    First Name
-                  </label>
-                  <input
-                    id="first-name"
-                    name="first_name"
-                    value={form.first_name}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="last-name">
-                    Last Name
-                  </label>
-                  <input
-                    id="last-name"
-                    name="last_name"
-                    value={form.last_name}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="employee-email">
-                  Email
-                </label>
-                <input
-                  id="employee-email"
-                  name="email"
-                  type="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="form-row">
-                <div>
-                  <label htmlFor="department">
-                    Department
-                  </label>
-                  <input
-                    id="department"
-                    name="department"
-                    value={form.department}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="position">
-                    Position
-                  </label>
-                  <input
-                    id="position"
-                    name="position"
-                    value={form.position}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-              </div>
-
-              <button
-                className="btn-primary"
-                type="submit"
-                disabled={submitting}
-              >
-                {submitting
-                  ? "Creating..."
-                  : "Create Employee"}
-              </button>
-            </form>
-          </section>
+          <CreateEmployeeForm
+            form={form}
+            submitting={submitting}
+            onChange={handleChange}
+            onSubmit={handleCreate}
+          />
         )}
 
         {editingEmployee && (
-          <section>
-            <h2>Edit Employee</h2>
-
-            <form onSubmit={handleUpdate}>
-              <div className="form-row">
-                <div>
-                  <label htmlFor="edit-first-name">
-                    First Name
-                  </label>
-                  <input
-                    id="edit-first-name"
-                    name="first_name"
-                    value={editForm.first_name}
-                    onChange={handleEditChange}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="edit-last-name">
-                    Last Name
-                  </label>
-                  <input
-                    id="edit-last-name"
-                    name="last_name"
-                    value={editForm.last_name}
-                    onChange={handleEditChange}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="edit-email">
-                  Email
-                </label>
-                <input
-                  id="edit-email"
-                  name="email"
-                  type="email"
-                  value={editForm.email}
-                  onChange={handleEditChange}
-                  required
-                />
-              </div>
-
-              <div className="form-row">
-                <div>
-                  <label htmlFor="edit-department">
-                    Department
-                  </label>
-                  <input
-                    id="edit-department"
-                    name="department"
-                    value={editForm.department}
-                    onChange={handleEditChange}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="edit-position">
-                    Position
-                  </label>
-                  <input
-                    id="edit-position"
-                    name="position"
-                    value={editForm.position}
-                    onChange={handleEditChange}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="edit-status">
-                  Status
-                </label>
-                <select
-                  id="edit-status"
-                  name="status"
-                  value={editForm.status}
-                  onChange={handleEditChange}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="resigned">
-                    Resigned
-                  </option>
-                  <option value="terminated">
-                    Terminated
-                  </option>
-                </select>
-              </div>
-
-              <div className="form-row">
-                <button className="btn-primary" type="submit">
-                  Save Changes
-                </button>
-
-                <button
-                  className="btn-secondary"
-                  type="button"
-                  onClick={() => setEditingEmployee(null)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </section>
+          <EditEmployeeForm
+            employee={editingEmployee}
+            form={editForm}
+            onChange={handleEditChange}
+            onSubmit={handleUpdate}
+            onCancel={() => setEditingEmployee(null)}
+          />
         )}
 
         {accountEmployee && (
-          <section>
-            <h2>
-              Create Account for{" "}
-              {accountEmployee.first_name}{" "}
-              {accountEmployee.last_name}
-            </h2>
-
-            <form onSubmit={handleCreateAccount}>
-              <div>
-                <label htmlFor="account-email">
-                  Email
-                </label>
-
-                <input
-                  id="account-email"
-                  name="email"
-                  type="email"
-                  value={accountForm.email}
-                  onChange={handleAccountChange}
-                  required
-                />
-              </div>
-
-              <div>
-                <label htmlFor="account-password">
-                  Password
-                </label>
-
-                <input
-                  id="account-password"
-                  name="password"
-                  type="password"
-                  value={accountForm.password}
-                  onChange={handleAccountChange}
-                  required
-                  minLength={8}
-                />
-              </div>
-
-              <div className="form-row">
-                <button
-                  className="btn-primary"
-                  type="submit"
-                  disabled={accountSubmitting}
-                >
-                  {accountSubmitting
-                    ? "Creating..."
-                    : "Create Account"}
-                </button>
-
-                <button
-                  className="btn-secondary"
-                  type="button"
-                  onClick={() => setAccountEmployee(null)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </section>
+          <AccountForm
+            employee={accountEmployee}
+            form={accountForm}
+            submitting={accountSubmitting}
+            onChange={handleAccountChange}
+            onSubmit={handleCreateAccount}
+            onCancel={() => setAccountEmployee(null)}
+          />
         )}
 
         {balanceEmployee && (
-          <section>
-            <div className="leave-card-note-header">
-              <h2>
-                Leave Balances —{" "}
-                {balanceEmployee.first_name}{" "}
-                {balanceEmployee.last_name}
-              </h2>
-
-              <button
-                className="btn-secondary btn-sm"
-                type="button"
-                onClick={() => setBalanceEmployee(null)}
-              >
-                Close
-              </button>
-            </div>
-
-            {balanceLoading ? (
-              <Loading message="Loading leave balances..." />
-            ) : balances.length === 0 ? (
-              <EmptyState message="No leave balances set up for this employee yet." />
-            ) : (
-              <div className="balance-editor-grid">
-                {balances.map((balance) => (
-                  <div
-                    className="balance-editor-card"
-                    key={balance.leave_type}
-                  >
-                    <h3>{formatLeaveType(balance.leave_type)}</h3>
-
-                    <div className="balance-editor-field">
-                      <label
-                        htmlFor={`balance-${balance.leave_type}`}
-                      >
-                        Total Days
-                      </label>
-
-                      <input
-                        id={`balance-${balance.leave_type}`}
-                        type="number"
-                        min="0"
-                        max="365"
-                        value={balance.total_days}
-                        onChange={(event) =>
-                          handleBalanceChange(
-                            balance.leave_type,
-                            event.target.value
-                          )
-                        }
-                      />
-                    </div>
-
-                    <div className="balance-editor-stats">
-                      <span>Used: {balance.used_days}</span>
-                      <span>
-                        Remaining: {balance.remaining_days}
-                      </span>
-                    </div>
-
-                    <button
-                      className="btn-primary btn-sm"
-                      type="button"
-                      onClick={() =>
-                        handleBalanceUpdate(balance)
-                      }
-                      disabled={
-                        balanceUpdating ===
-                        balance.leave_type
-                      }
-                    >
-                      {balanceUpdating ===
-                      balance.leave_type
-                        ? "Updating..."
-                        : "Update Balance"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+          <BalanceEditor
+            employee={balanceEmployee}
+            balances={balances}
+            loading={balanceLoading}
+            updatingType={balanceUpdating}
+            onBalanceChange={handleBalanceChange}
+            onBalanceUpdate={handleBalanceUpdate}
+            onClose={() => setBalanceEmployee(null)}
+          />
         )}
 
         <section>

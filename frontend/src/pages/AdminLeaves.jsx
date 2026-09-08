@@ -80,6 +80,11 @@ function AdminLeaves() {
   };
 
   const handleAction = async (leaveId, action) => {
+    if (action === "reject") {
+      const confirmed = window.confirm("Reject this leave request?");
+      if (!confirmed) return;
+    }
+
     setError("");
     setMessage("");
     setActionPending({ leaveId, action });

@@ -1,16 +1,10 @@
 import StatusBadge from "./StatusBadge";
 import {
+  LEAVE_TYPE_ICONS,
   formatDisplayDateRange,
   formatLeaveDuration,
   formatLeaveType,
 } from "../utils/formatters";
-
-const LEAVE_TYPE_ICONS = {
-  vacation: "beach_access",
-  sick: "medical_services",
-  emergency: "warning",
-  other: "event_available",
-};
 
 function LeaveCard({ leave, children }) {
   const duration = formatLeaveDuration(leave.start_date, leave.end_date);
